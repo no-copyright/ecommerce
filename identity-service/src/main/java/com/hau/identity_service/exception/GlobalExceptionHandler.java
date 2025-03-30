@@ -1,19 +1,23 @@
 package com.hau.identity_service.exception;
 
+import com.hau.identity_service.dto.ErrorsResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import com.hau.identity_service.dto.ErrorsResponse;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-@ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
     // Xử lý ngoại lệ validation
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -77,20 +81,27 @@ public class GlobalExceptionHandler {
 
 
     // Xử lý lỗi khi không tìm thấy tài nguyên
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorsResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ErrorsResponse> handleAppException(AppException ex) {
         ErrorsResponse errorResponse = new ErrorsResponse(
-                HttpStatus.NOT_FOUND.value(),
+                ex.getHttpStatus().value(),
                 ex.getMessage(),
+                ex.getError(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, ex.getHttpStatus()); // Trả về HttpStatus từ AppException
+    }
+
+    // Xử lý lỗi không có quyền truy cập
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorsResponse> handleAccessDeniedException() {
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Không có quyền truy cập tài nguyên này",
                 null,
                 LocalDateTime.now()
         );
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
-    }
-    public static class ResourceNotFoundException extends RuntimeException {
-        public ResourceNotFoundException(String message) {
-            super(message);
-        }
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
 
     // Xử lý tất cả các ngoại lệ chưa được xác định
