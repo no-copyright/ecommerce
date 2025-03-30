@@ -5,18 +5,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class UserResponse {
-    private Long id;
+    private String id;
     private String username;
     private String email;
     private String phone;
     private String address;
     private String profileImage;
     private Integer gender;
-    private String createdAt;
-    private String updatedAt;
+    Set<RoleResponse> roles;
 }

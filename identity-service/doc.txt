@@ -1,0 +1,1533 @@
+/* ===== identity_service/IdentityServiceApplication.java ===== */
+package com.hau.identity_service;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+
+@SpringBootApplication
+@ComponentScan(basePackages = "com.hau")
+public class IdentityServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(IdentityServiceApplication.class, args);
+    }
+
+}
+
+
+/* ===== identity_service/config/ApplicationInitConfig.java ===== */
+package com.hau.identity_service.config;
+
+import com.hau.identity_service.entity.Role;
+import com.hau.identity_service.entity.User;
+import com.hau.identity_service.repository.RoleRepository;
+import com.hau.identity_service.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.HashSet;
+import java.util.Set;
+
+@RequiredArgsConstructor
+@Configuration
+@Slf4j
+public class ApplicationInitConfig {
+
+    private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
+
+    @Bean
+    ApplicationRunner applicationRunner(UserRepository userRepository) {
+        return args -> {
+            if (roleRepository.findByName("ADMIN").isEmpty()) {
+                Role adminRole = Role.builder()
+                        .name("ADMIN")
+                        .description("Quyền quản trị viên")
+                        .build();
+                roleRepository.save(adminRole);
+                log.info("Role ADMIN đã được tạo.");
+            }
+
+            if (roleRepository.findByName("USER").isEmpty()) {
+                Role userRole = Role.builder()
+                        .name("USER")
+                        .description("Quyền người dùng thông thường")
+                        .build();
+                roleRepository.save(userRole);
+                log.info("Role USER đã được tạo.");
+            }
+
+
+            if (userRepository.findByUsername("admin").isEmpty()) {
+
+                User user = User.builder()
+                        .username("admin")
+                        .password(passwordEncoder.encode("admin"))
+                        .email("datdnk3@gmail.com")
+                        .phone("0986964761")
+                        .address("Hà Nội")
+                        .gender(0)
+                        .build();
+                var roles = roleRepository.findAllById(Set.of("ADMIN"));
+                if (roles.isEmpty()) {
+                    log.error("Không tìm thấy role ADMIN");
+                    return;
+                }
+                user.setRoles(new HashSet<>(roles));
+                userRepository.save(user);
+                log.warn("Người dùng admin đã được tạo với mật khẩu là admin, hãy thay đổi mật khẩu ngay sau khi đăng nhập lần đầu tiên");
+            }
+        };
+    }
+
+}
+
+
+/* ===== identity_service/config/JwtAuthenticationEntryPoint.java ===== */
+package com.hau.identity_service.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hau.identity_service.dto.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+
+import java.io.IOException;
+
+public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+    @Override
+    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        ApiResponse<?> apiResponse = ApiResponse.builder()
+                .status(HttpStatus.FORBIDDEN.value())
+                .message("Không có quyền truy cập tài nguyên này")
+                .build();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+        response.flushBuffer();
+    }
+}
+
+
+/* ===== identity_service/config/SecurityConfig.java ===== */
+package com.hau.identity_service.config;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+
+@Configuration
+@EnableMethodSecurity
+@EnableWebSecurity
+public class SecurityConfig {
+
+
+    @Value("${jwt.signerKey}")
+    private String SIGNER_KEY;
+
+    private final String[] PUBLIC_ENDPOINT_POST = {
+            "/api/v1/users",
+            "/api/v1/auth/introspect",
+            "/api/v1/auth/login"
+    };
+    private final String[] PUBLIC_ENDPOINT_GET = {
+
+    };
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(request ->
+                request
+                        .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINT_POST).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_ENDPOINT_GET).permitAll()
+                        .anyRequest().authenticated()
+        );
+
+        http.oauth2ResourceServer(
+                oauth2 ->
+                        oauth2.jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder())
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                                .authenticationEntryPoint(new JwtAuthenticationEntryPoint())
+        );
+
+        http.csrf(AbstractHttpConfigurer::disable);
+        // Thêm log debug
+        http.addFilterBefore(new OncePerRequestFilter() {
+            @Override
+            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                    throws ServletException, IOException {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null) {
+                    System.out.println("Authentication: " + auth);
+                    System.out.println("Authorities: " + auth.getAuthorities());
+                }
+                filterChain.doFilter(request, response);
+            }
+        }, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        jwtGrantedAuthoritiesConverter.setAuthorityPrefix("");
+        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
+        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter);
+
+        return jwtAuthenticationConverter;
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder() {
+        SecretKeySpec secretKeySpec = new SecretKeySpec(SIGNER_KEY.getBytes(), "HS512");
+
+        return NimbusJwtDecoder
+                .withSecretKey(secretKeySpec)
+                .macAlgorithm(MacAlgorithm.HS512)
+                .build()
+                ;
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(10);
+    }
+}
+
+/* ===== identity_service/controller/AuthenticationController.java ===== */
+package com.hau.identity_service.controller;
+
+import com.hau.identity_service.dto.*;
+import com.hau.identity_service.service.AuthenticationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/auth")
+public class AuthenticationController {
+    private final AuthenticationService authenticationService;
+
+
+    @PostMapping("/login")
+    private ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
+        ApiResponse<AuthenticationResponse> apiResponse = authenticationService.authenticate(authenticationRequest);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PostMapping("/introspect")
+    private ResponseEntity<ApiResponse<IntrospectResponse>> introspect(@RequestBody IntrospectRequest request) {
+        ApiResponse<IntrospectResponse> apiResponse = authenticationService.introspect(request);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+}
+
+
+/* ===== identity_service/controller/PermissionController.java ===== */
+package com.hau.identity_service.controller;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.PermissionCreationRequest;
+import com.hau.identity_service.dto.PermissionResponse;
+import com.hau.identity_service.service.PermissionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/permissions")
+@RequiredArgsConstructor
+
+public class PermissionController {
+    private final PermissionService permissionService;
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping
+    private ResponseEntity<ApiResponse<PermissionResponse>> createPermission(@RequestBody PermissionCreationRequest permissionCreationRequest) {
+        ApiResponse<PermissionResponse> apiResponse = permissionService.createPermission(permissionCreationRequest);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    private ResponseEntity<ApiResponse<List<PermissionResponse>>> getAllPermissions() {
+        ApiResponse<List<PermissionResponse>> apiResponse = permissionService.getAllPermissions();
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{name}")
+    private ResponseEntity<ApiResponse<PermissionResponse>> deletePermission(@PathVariable String name) {
+        ApiResponse<PermissionResponse> apiResponse = permissionService.deletePermission(name);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+}
+
+
+/* ===== identity_service/controller/RoleController.java ===== */
+package com.hau.identity_service.controller;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.RoleCreationRequest;
+import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.service.RoleService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/roles")
+public class RoleController {
+    private final RoleService roleService;
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping
+    private ResponseEntity<ApiResponse<RoleResponse>> createRole(@RequestBody RoleCreationRequest roleRequest) {
+        ApiResponse<RoleResponse> apiResponse = roleService.createRole(roleRequest);
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN')")
+    @GetMapping
+    private ResponseEntity<ApiResponse<List<RoleResponse>>> getAllRoles() {
+        ApiResponse<List<RoleResponse>> apiResponse = roleService.getAllRoles();
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{name}")
+    private ResponseEntity<ApiResponse<RoleResponse>> deleteRole(@PathVariable String name) {
+        ApiResponse<RoleResponse> apiResponse = roleService.deleteRole(name);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+}
+
+
+/* ===== identity_service/controller/UserController.java ===== */
+package com.hau.identity_service.controller;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.UserCreateRequest;
+import com.hau.identity_service.dto.UserResponse;
+import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/users")
+public class UserController {
+    private final UserService userService;
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserCreateRequest userCreateRequest) {
+        ApiResponse<UserResponse> userResponse = userService.createUser(userCreateRequest);
+        return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @GetMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long userId) {
+        ApiResponse<UserResponse> userResponse = userService.getUserById(userId);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @GetMapping("/info")
+    public ResponseEntity<ApiResponse<UserResponse>> myInfo() {
+        ApiResponse<UserResponse> userResponse = userService.myInfo();
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PutMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long userId, @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
+        ApiResponse<UserResponse> userResponse = userService.updateUser(userId, userUpdateRequest);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<UserResponse>> getAllUsers(
+            @RequestParam(required = false, defaultValue = "0") int pageIndex,
+            @RequestParam(required = false, defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) Integer gender
+    ) {
+        Page<UserResponse> userPage = userService.getAllUsers(pageIndex, pageSize, username, gender);
+        return new ResponseEntity<>(userPage, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserResponse>> deleteUser(@PathVariable Long userId) {
+        ApiResponse<UserResponse> userResponse = userService.deleteUser(userId);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+}
+
+/* ===== identity_service/dto/ApiResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApiResponse<T> {
+    private int status;
+    private String message;
+    private T result;
+    LocalDateTime timestamp;
+}
+
+
+/* ===== identity_service/dto/AuthenticationRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+
+public class AuthenticationRequest {
+    private String username;
+    private String password;
+}
+
+
+/* ===== identity_service/dto/AuthenticationResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+
+public class AuthenticationResponse {
+    boolean authenticated;
+    private String token;
+}
+
+
+/* ===== identity_service/dto/ErrorsResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ErrorsResponse {
+    int status;
+    String message;
+    Object error;
+    LocalDateTime timestamp;
+}
+
+
+/* ===== identity_service/dto/IntrospectRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class IntrospectRequest {
+    private String token;
+}
+
+
+/* ===== identity_service/dto/IntrospectResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class IntrospectResponse {
+    private boolean valid;
+    private String username;
+}
+
+
+/* ===== identity_service/dto/PermissionCreationRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PermissionCreationRequest {
+    private String name;
+    private String description;
+}
+
+
+/* ===== identity_service/dto/PermissionResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PermissionResponse {
+    private String name;
+    private String description;
+}
+
+
+/* ===== identity_service/dto/RoleCreationRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.*;
+
+import java.util.Set;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class RoleCreationRequest {
+    private String name;
+    private String description;
+    private Set<String> permissions;
+}
+
+
+/* ===== identity_service/dto/RoleResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class RoleResponse {
+    private String name;
+    private String description;
+    private Set<PermissionResponse> permissions;
+}
+
+
+/* ===== identity_service/dto/UserCreateRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UserCreateRequest {
+    @NotBlank(message = "Username không được để trống")
+    private String username;
+    @Size(min = 6, message = "Password phải có ít nhất 6 ký tự")
+    private String password;
+    @Email(message = "Email không đúng định dạng")
+    @NotBlank(message = "Email không được để trống")
+    private String email;
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    private Set<String> roles;
+}
+
+/* ===== identity_service/dto/UserResponse.java ===== */
+package com.hau.identity_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UserResponse {
+    private String id;
+    private String username;
+    private String email;
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    Set<RoleResponse> roles;
+}
+
+/* ===== identity_service/dto/UserUpdateRequest.java ===== */
+package com.hau.identity_service.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+
+public class UserUpdateRequest {
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
+    private String email;
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    List<String> roles;
+}
+
+
+/* ===== identity_service/entity/Permission.java ===== */
+package com.hau.identity_service.entity;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.*;
+
+@Entity
+@Setter
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "permissions")
+public class Permission {
+    @Id
+    private String name;
+    private String description;
+}
+
+
+/* ===== identity_service/entity/Role.java ===== */
+package com.hau.identity_service.entity;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+import lombok.*;
+
+import java.util.Set;
+
+@Entity
+@Setter
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "roles")
+public class Role {
+    @Id
+    private String name;
+    private String description;
+
+    @ManyToMany
+    Set<Permission> permissions;
+}
+
+
+/* ===== identity_service/entity/User.java ===== */
+package com.hau.identity_service.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.time.LocalDateTime;
+import java.util.Set;
+
+
+@Entity
+@Setter
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    private String username;
+    private String password;
+    private String email;
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    @ManyToMany
+    private Set<Role> roles;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+}
+
+
+/* ===== identity_service/exception/AppException.java ===== */
+package com.hau.identity_service.exception;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.http.HttpStatus;
+
+import java.time.LocalDateTime;
+
+@Setter
+@Getter
+public class AppException extends RuntimeException {
+    private final HttpStatus httpStatus;
+    private final Object error;
+    private final LocalDateTime timestamp;
+
+    public AppException(HttpStatus httpStatus, String message, Object error) {
+        super(message);
+        this.httpStatus = httpStatus;
+        this.error = error;
+        this.timestamp = LocalDateTime.now();
+    }
+}
+
+
+/* ===== identity_service/exception/GlobalExceptionHandler.java ===== */
+package com.hau.identity_service.exception;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import com.hau.identity_service.dto.ErrorsResponse;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    // Xử lý ngoại lệ validation
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorsResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        List<Map<String, String>> errorDetails = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(error -> {
+            Map<String, String> detail = new HashMap<>();
+            detail.put("field", error.getField());
+            detail.put("message", error.getDefaultMessage());
+            errorDetails.add(detail);
+        });
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Lỗi trường dữ liệu",
+                errorDetails,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    // Xử lý ngoại lệ DataIntegrityViolationException
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorsResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        List<Map<String, String>> errorDetails = new ArrayList<>();
+        Map<String, String> detail = new HashMap<>();
+        detail.put("error", ex.getMessage());
+        errorDetails.add(detail);
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Vi phạm tính toàn vẹn dữ liệu. Xem 'error' để biết chi tiết.",
+                errorDetails,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    // Xử lý ngoại lệ tham số không đúng định dạng trong url
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorsResponse> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String name = ex.getName();
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Tham số " + name + " không đúng định dạng",
+                null,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    // Xử lý lỗi truyền sai định dạng tham số trong body request
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorsResponse> handleHttpMessageNotReadableException() {
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Dữ liệu request không đúng định dạng",
+                null,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+
+    // Xử lý lỗi khi không tìm thấy tài nguyên
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ErrorsResponse> handleAppException(AppException ex) {
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                ex.getHttpStatus().value(),
+                ex.getMessage(),
+                ex.getError(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, ex.getHttpStatus()); // Trả về HttpStatus từ AppException
+    }
+
+    // Xử lý lỗi không có quyền truy cập
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorsResponse> handleAccessDeniedException() {
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Không có quyền truy cập tài nguyên này",
+                null,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
+
+    // Xử lý tất cả các ngoại lệ chưa được xác định
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorsResponse> handleAllExceptions() {
+        ErrorsResponse errorResponse = new ErrorsResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Đã có lỗi xảy ra(chưa xác định)",
+                null,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+
+
+/* ===== identity_service/mapper/PermissionMapper.java ===== */
+package com.hau.identity_service.mapper;
+
+import com.hau.identity_service.dto.*;
+import com.hau.identity_service.entity.Permission;
+import org.mapstruct.Mapper;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.springframework.stereotype.Component;
+
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+public interface PermissionMapper {
+    Permission toPermission(PermissionCreationRequest permissionCreationRequest);
+    PermissionResponse toPermissionResponse(Permission permission);
+}
+
+
+/* ===== identity_service/mapper/RoleMapper.java ===== */
+package com.hau.identity_service.mapper;
+
+import com.hau.identity_service.dto.RoleCreationRequest;
+import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.entity.Role;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+public interface RoleMapper {
+    @Mapping(target = "permissions", ignore = true)
+    Role toRole(RoleCreationRequest roleCreationRequest);
+    RoleResponse toRoleResponse(Role role);
+}
+
+
+/* ===== identity_service/mapper/UserMapper.java ===== */
+package com.hau.identity_service.mapper;
+
+import com.hau.identity_service.dto.UserCreateRequest;
+import com.hau.identity_service.dto.UserResponse;
+import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.entity.User;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+public interface UserMapper {
+    @Mapping(target = "roles", ignore = true)
+    User toUser(UserCreateRequest userCreateRequest);
+
+    @Mapping(target = "roles", ignore = true)
+    void toUserUpdateRequest(@MappingTarget User user, UserUpdateRequest userUpdateRequest);
+
+
+    UserResponse toUserResponse(User user);
+}
+
+
+/* ===== identity_service/repository/PermissionRepository.java ===== */
+package com.hau.identity_service.repository;
+
+import com.hau.identity_service.entity.Permission;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface PermissionRepository extends JpaRepository<Permission, String>, JpaSpecificationExecutor<Permission> {
+    Optional<Permission> findByName(String name);
+}
+
+
+/* ===== identity_service/repository/RoleRepository.java ===== */
+package com.hau.identity_service.repository;
+
+import com.hau.identity_service.entity.Role;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface RoleRepository extends JpaRepository<Role, String>, JpaSpecificationExecutor<Role> {
+    Optional<Role> findByName(String name);
+}
+
+
+/* ===== identity_service/repository/UserRepository.java ===== */
+package com.hau.identity_service.repository;
+
+import com.hau.identity_service.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
+    Optional<User> findByUsername(String username);
+
+}
+
+
+/* ===== identity_service/service/AuthenticationService.java ===== */
+package com.hau.identity_service.service;
+
+import com.hau.identity_service.dto.*;
+import com.hau.identity_service.entity.User;
+import com.hau.identity_service.exception.AppException;
+import com.hau.identity_service.repository.UserRepository;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.StringJoiner;
+import java.util.UUID;
+
+@RequiredArgsConstructor
+@Service
+@Slf4j
+public class AuthenticationService {
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    @Value("${jwt.signerKey}")
+    private String SINGER_KEY;
+
+    @Value("${jwt.issuer}")
+    private String ISSUER;
+
+    @Value("${jwt.expiration}")
+    private Long EXPIRATION;
+
+    public ApiResponse<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest) {
+        User user = userRepository.findByUsername(authenticationRequest.getUsername())
+                .orElse(null);
+
+        if (user == null || !passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword())) {
+            return ApiResponse.<AuthenticationResponse>builder()
+                    .status(HttpStatus.UNAUTHORIZED.value())
+                    .message("Thông tin đăng nhập không chính xác")
+                    .result(AuthenticationResponse.builder()
+                            .authenticated(false)
+                            .token(null)
+                            .build())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        String token;
+        try {
+            token = generateToken(user);
+        } catch (JOSEException e) {
+            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo token", e);
+        }
+
+        return ApiResponse.<AuthenticationResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Đăng nhập thành công")
+                .result(AuthenticationResponse.builder()
+                        .authenticated(true)
+                        .token(token)
+                        .build())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<IntrospectResponse> introspect(IntrospectRequest introspectRequest) {
+        String token = introspectRequest.getToken();
+
+        // Check if token is empty or null
+        if (token == null || token.isEmpty()) {
+            return buildErrorResponse("Token không được cung cấp");
+        }
+
+        try {
+            // Parse and verify token
+            JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+
+            // Verify signature
+            boolean signatureValid = signedJWT.verify(verifier);
+            if (!signatureValid) {
+                return buildErrorResponse("Chữ ký token không hợp lệ");
+            }
+
+            // Check expiration
+            Date expirationTime = claimsSet.getExpirationTime();
+            if (expirationTime == null || expirationTime.before(new Date())) {
+                return buildErrorResponse("Token đã hết hạn");
+            }
+
+            // Check issuer
+            String tokenIssuer = claimsSet.getIssuer();
+            if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
+                return buildErrorResponse("Token issuer không hợp lệ");
+            }
+
+            // Check if token is not used before its issue time
+            Date issueTime = claimsSet.getIssueTime();
+            if (issueTime != null && issueTime.after(new Date())) {
+                return buildErrorResponse("Token chưa có hiệu lực");
+            }
+
+            return ApiResponse.<IntrospectResponse>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Token hợp lệ")
+                    .result(IntrospectResponse.builder()
+                            .valid(true)
+                            .username(claimsSet.getSubject())
+                            .build())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+        } catch (ParseException e) {
+            return buildErrorResponse("Token không đúng định dạng");
+        } catch (JOSEException e) {
+            return buildErrorResponse("Lỗi xác thực token");
+        } catch (Exception e) {
+            return buildErrorResponse("Lỗi không xác định: " + e.getMessage());
+        }
+    }
+
+    private ApiResponse<IntrospectResponse> buildErrorResponse(String message) {
+        return ApiResponse.<IntrospectResponse>builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message(message)
+                .result(IntrospectResponse.builder()
+                        .valid(false)
+                        .build())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    String generateToken(User user) throws JOSEException {
+        JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
+        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
+                .subject(user.getUsername())
+                .issuer(ISSUER)
+                .issueTime(new Date())
+                .expirationTime(new Date(
+                        Instant.now().plus(EXPIRATION, ChronoUnit.MINUTES).toEpochMilli()
+                ))
+                .claim("scope", buildScope(user))
+                .jwtID(UUID.randomUUID().toString())
+                .build();
+
+        Payload payload = new Payload(jwtClaimsSet.toJSONObject());
+        JWSObject jwsObject = new JWSObject(jwsHeader, payload);
+        jwsObject.sign(new MACSigner(SINGER_KEY.getBytes()));
+        return jwsObject.serialize();
+    }
+
+    private String buildScope(User user) {
+        StringJoiner stringJoiner = new StringJoiner(" ");
+        if (!CollectionUtils.isEmpty(user.getRoles())) {
+            user.getRoles().forEach(role -> {
+                stringJoiner.add("ROLE_" + role.getName());
+                if (!CollectionUtils.isEmpty(role.getPermissions())) {
+                    role.getPermissions().forEach(permission -> stringJoiner.add(permission.getName()));
+                }
+            });
+        }
+        return stringJoiner.toString();
+    }
+}
+
+/* ===== identity_service/service/PermissionService.java ===== */
+package com.hau.identity_service.service;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.PermissionCreationRequest;
+import com.hau.identity_service.dto.PermissionResponse;
+import com.hau.identity_service.entity.Permission;
+import com.hau.identity_service.exception.AppException;
+import com.hau.identity_service.mapper.PermissionMapper;
+import com.hau.identity_service.repository.PermissionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+
+public class PermissionService {
+
+    private final PermissionRepository permissionRepository;
+    private final PermissionMapper permissionMapper;
+
+
+    public ApiResponse<PermissionResponse> createPermission(PermissionCreationRequest permissionCreationRequest) {
+        Permission permission = permissionMapper.toPermission(permissionCreationRequest);
+        permissionRepository.save(permission);
+        return ApiResponse.<PermissionResponse>builder()
+                .status(HttpStatus.CREATED.value())
+                .message("Tạo mới quyền thành công")
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<List<PermissionResponse>> getAllPermissions() {
+        List<Permission> permissions = permissionRepository.findAll();
+        List<PermissionResponse> permissionResponses = permissions.stream()
+                .map(permissionMapper::toPermissionResponse)
+                .toList();
+        return ApiResponse.<List<PermissionResponse>>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy danh sách quyền thành công")
+                .result(permissionResponses)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<PermissionResponse> deletePermission(String name) {
+        Permission permission = permissionRepository.findByName(name)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy quyền với tên: " + name, null));
+        permissionRepository.delete(permission);
+        return ApiResponse.<PermissionResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Xóa quyền thành công")
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+}
+
+
+/* ===== identity_service/service/RoleService.java ===== */
+package com.hau.identity_service.service;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.RoleCreationRequest;
+import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.entity.Role;
+import com.hau.identity_service.exception.AppException;
+import com.hau.identity_service.mapper.RoleMapper;
+import com.hau.identity_service.repository.PermissionRepository;
+import com.hau.identity_service.repository.RoleRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class RoleService {
+    private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+    private final RoleMapper roleMapper;
+
+    public ApiResponse<RoleResponse> createRole(RoleCreationRequest request) {
+        var role = roleMapper.toRole(request);
+        var permissionIds = request.getPermissions();
+        var permissions = permissionRepository.findAllById(permissionIds);
+        if (CollectionUtils.isEmpty(permissions)) {
+            return ApiResponse.<RoleResponse>builder()
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .message("Không tìm thấy permission nào")
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+        role.setPermissions(new HashSet<>(permissions));
+        roleRepository.save(role);
+        return ApiResponse.<RoleResponse>builder()
+                .status(HttpStatus.CREATED.value())
+                .message("Tạo role thành công")
+                .result(roleMapper.toRoleResponse(role))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+
+    public ApiResponse<List<RoleResponse>> getAllRoles() {
+        List<Role> roles = roleRepository.findAll();
+        List<RoleResponse> roleResponses = roles.stream()
+                .map(roleMapper::toRoleResponse)
+                .toList();
+        return ApiResponse.<List<RoleResponse>>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy danh sách role thành công")
+                .result(roleResponses)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<RoleResponse> deleteRole(String name) {
+        Role role = roleRepository.findByName(name)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy role với tên: " + name, null));
+        roleRepository.delete(role);
+        return ApiResponse.<RoleResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Xóa role thành công")
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+}
+
+
+/* ===== identity_service/service/UserService.java ===== */
+package com.hau.identity_service.service;
+
+import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.UserCreateRequest;
+import com.hau.identity_service.dto.UserResponse;
+import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.entity.User;
+import com.hau.identity_service.exception.AppException;
+import com.hau.identity_service.mapper.UserMapper;
+import com.hau.identity_service.repository.RoleRepository;
+import com.hau.identity_service.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+
+@RequiredArgsConstructor
+@Service
+@Slf4j
+public class UserService {
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
+    public ApiResponse<UserResponse> createUser(UserCreateRequest userCreateRequest) {
+        if (userRepository.findByUsername(userCreateRequest.getUsername()).isPresent()) {
+            return ApiResponse.<UserResponse>builder()
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .message("Username đã tồn tại")
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        var user = userMapper.toUser(userCreateRequest);
+        var roles = roleRepository.findAllById(Set.of("USER"));
+        if (CollectionUtils.isEmpty(roles)) {
+            return ApiResponse.<UserResponse>builder()
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .message("Không tìm thấy role nào")
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+        user.setRoles(new HashSet<>(roles));
+        user.setPassword(passwordEncoder.encode(userCreateRequest.getPassword()));
+        userRepository.save(user);
+
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.CREATED.value())
+                .message("Tạo mới user thành công")
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+
+    public Page<UserResponse> getAllUsers(int pageIndex, int pageSize, String username, Integer gender) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        log.info("Username : {}", authentication.getName());
+        authentication.getAuthorities().forEach(grantedAuthority -> log.info(grantedAuthority.getAuthority()));
+
+        Specification<User> spec = Specification.where(null);
+
+        if (username != null) {
+            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + username.toLowerCase() + "%"));
+        }
+
+        if (gender != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("gender"), gender));
+        }
+
+        Pageable pageable = PageRequest.of(pageIndex, pageSize);
+        Page<User> userPage = userRepository.findAll(spec, pageable);
+
+        return userPage.map(userMapper::toUserResponse);
+    }
+
+
+    public ApiResponse<UserResponse> myInfo() {
+        var context = SecurityContextHolder.getContext();
+        String username = context.getAuthentication().getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy user", null));
+        UserResponse userResponse = userMapper.toUserResponse(user);
+
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy thông tin user thành công")
+                .result(userResponse)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> getUserById(Long id) {
+        User user = findUserById(id);
+        UserResponse userResponse = userMapper.toUserResponse(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy thông tin user thành công")
+                .result(userResponse)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> updateUser(Long id, UserUpdateRequest userUpdateRequest) {
+        User user = findUserById(id);
+        userMapper.toUserUpdateRequest(user, userUpdateRequest);
+        var roles = roleRepository.findAllById(userUpdateRequest.getRoles());
+        user.setRoles(new HashSet<>(roles));
+
+        userRepository.save(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Cập nhật thông tin user thành công")
+                .result(userMapper.toUserResponse(user))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> deleteUser(Long id) {
+        User user = findUserById(id);
+        userRepository.delete(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Xóa user thành công")
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public User findUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy user có id: " + id, null));
+    }
+
+    public boolean isOwnerOfUser(Long requestedUserId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        String authenticatedUsername = authentication.getName();
+        try {
+            User requestedUser = findUserById(requestedUserId);
+            return requestedUser.getUsername().equals(authenticatedUsername);
+        } catch (AppException e) {
+            log.warn("Không tìm thấy người dùng với ID: {}", requestedUserId);
+            return false;
+        }
+    }
+}
+
