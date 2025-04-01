@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mã OTP Xác Thực - Đặt Lại Mật Khẩu</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .header {
+            background-color: #4285f4;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+        .otp-container {
+            background-color: #f5f8ff;
+            border: 1px solid #d1e0ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .otp-code {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4285f4;
+            letter-spacing: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .timer {
+            background-color: #ffe8e8;
+            border-radius: 4px;
+            padding: 8px 15px;
+            display: inline-block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #e53935;
+        }
+        .instructions {
+            margin: 25px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-left: 4px solid #4285f4;
+        }
+        .footer {
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .social-icons {
+            margin-top: 15px;
+        }
+        .social-icons a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #4285f4;
+            text-decoration: none;
+        }
+        .warning {
+            color: #e53935;
+            font-weight: bold;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                border-radius: 0;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Xác Thực Tài Khoản</h1>
+    </div>
+
+    <div class="content">
+        <p>Xin chào</p>
+
+        <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Để tiếp tục quá trình này, vui lòng sử dụng mã OTP dưới đây:</p>
+
+        <div class="otp-container">
+            <p>Mã OTP của bạn là</p>
+            <div class="otp-code" th:text="${otp}">123456</div>
+            <div class="timer">
+                Hết hạn sau <strong th:text="${expiryMinutes}">5</strong> phút
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>Hướng dẫn:</h3>
+            <ol>
+                <li>Nhập mã OTP trên vào trang đặt lại mật khẩu.</li>
+                <li>Tạo mật khẩu mới an toàn cho tài khoản của bạn.</li>
+                <li>Đăng nhập bằng mật khẩu mới.</li>
+            </ol>
+        </div>
+
+        <p class="warning">⚠️ Lưu ý quan trọng:</p>
+        <ul>
+            <li>Không chia sẻ mã OTP này với bất kỳ ai, kể cả nhân viên của chúng tôi.</li>
+            <li>Mã OTP chỉ có hiệu lực trong vòng <strong th:text="${expiryMinutes}">5</strong> phút.</li>
+            <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và kiểm tra tài khoản của bạn.</li>
+        </ul>
+
+        <p>Nếu bạn gặp khó khăn hoặc cần trợ giúp, hãy liên hệ với đội ngũ hỗ trợ của chúng tôi qua email <a href="mailto:support@example.com">hausupport@gmail.com</a> hoặc hotline <strong>1900 1009</strong>.</p>
+    </div>
+
+    <div class="footer">
+        <p>Trân trọng,<br /><strong>Đội Ngũ Quản Trị Viên</strong></p>
+        <p>© 2025 Đại học Kiến trúc Hà Nội. Tất cả các quyền được bảo lưu.</p>
+        <p>Địa chỉ: Km 10, Đường Trần Phú, phường Văn Quán, quận Hà Đông, thành phố Hà Nội</p>
+
+        <div class="social-icons">
+            <a href="#" title="Facebook">Facebook</a> |
+            <a href="#" title="Instagram">Instagram</a> |
+            <a href="#" title="LinkedIn">LinkedIn</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,9 +1,6 @@
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.UserCreateRequest;
-import com.hau.identity_service.dto.UserResponse;
-import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.dto.*;
 import com.hau.identity_service.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +39,13 @@ public class UserController {
     @PutMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long userId, @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
         ApiResponse<UserResponse> userResponse = userService.updateUser(userId, userUpdateRequest);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PatchMapping("/{userId}/password")
+    public ResponseEntity<ApiResponse<UserResponse>> updatePassword(@PathVariable Long userId, @RequestBody ChangePasswordRequest changePasswordRequest) {
+        ApiResponse<UserResponse> userResponse = userService.changePassword(userId, changePasswordRequest);
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }
 

@@ -20,10 +20,10 @@ import java.util.Set;
 public class ApplicationInitConfig {
 
     private final PasswordEncoder passwordEncoder;
-    private final RoleRepository roleRepository;
+//    private final RoleRepository roleRepository;
 
     @Bean
-    ApplicationRunner applicationRunner(UserRepository userRepository) {
+    ApplicationRunner applicationRunner(UserRepository userRepository, RoleRepository roleRepository) {
         return args -> {
             if (roleRepository.findByName("ADMIN").isEmpty()) {
                 Role adminRole = Role.builder()

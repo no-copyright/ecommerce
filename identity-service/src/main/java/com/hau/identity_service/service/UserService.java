@@ -1,9 +1,6 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.UserCreateRequest;
-import com.hau.identity_service.dto.UserResponse;
-import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.dto.*;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.UserMapper;
@@ -129,6 +126,27 @@ public class UserService {
                 .status(HttpStatus.OK.value())
                 .message("Cập nhật thông tin user thành công")
                 .result(userMapper.toUserResponse(user))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> changePassword(Long id, ChangePasswordRequest changePasswordRequest) {
+        User user = findUserById(id);
+        if (!passwordEncoder.matches(changePasswordRequest.getOldPassword(), user.getPassword())) {
+            return ApiResponse.<UserResponse>builder()
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .message("Mật khẩu cũ không chính xác")
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        user.setPassword(passwordEncoder.encode(changePasswordRequest.getNewPassword()));
+        userRepository.save(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Đổi mật khẩu thành công")
+                .result(null)
                 .timestamp(LocalDateTime.now())
                 .build();
     }

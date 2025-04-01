@@ -31,7 +31,10 @@ public class SecurityConfig {
     private final String[] PUBLIC_ENDPOINT_POST = {
             "/api/v1/users",
             "/api/v1/auth/introspect",
-            "/api/v1/auth/login"
+            "/api/v1/auth/login",
+            "/api/v1/auth/password-recovery/otp",
+            "/api/v1/auth/password-recovery/otp/verify/{username}",
+            "/api/v1/auth/password-recovery/reset/{username}"
     };
     private final String[] PUBLIC_ENDPOINT_GET = {
 
