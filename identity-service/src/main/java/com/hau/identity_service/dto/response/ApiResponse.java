@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;

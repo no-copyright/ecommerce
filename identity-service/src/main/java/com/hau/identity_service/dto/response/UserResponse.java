@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

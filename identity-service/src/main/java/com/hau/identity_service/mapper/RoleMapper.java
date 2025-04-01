@@ -1,7 +1,7 @@
 package com.hau.identity_service.mapper;
 
-import com.hau.identity_service.dto.RoleCreationRequest;
-import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.entity.Role;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

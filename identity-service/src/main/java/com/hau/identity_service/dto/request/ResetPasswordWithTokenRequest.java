@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

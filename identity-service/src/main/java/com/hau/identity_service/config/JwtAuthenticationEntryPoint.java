@@ -1,7 +1,7 @@
 package com.hau.identity_service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;

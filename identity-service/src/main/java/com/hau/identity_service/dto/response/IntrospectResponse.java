@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class IntrospectRequest {
-    private String token;
+public class IntrospectResponse {
+    private boolean valid;
+    private String username;
 }

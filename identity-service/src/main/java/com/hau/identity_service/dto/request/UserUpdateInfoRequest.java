@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -8,14 +8,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
+@Builder
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-
-public class UserUpdateRequest {
+public class UserUpdateInfoRequest {
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không đúng định dạng")
     private String email;
@@ -24,5 +21,4 @@ public class UserUpdateRequest {
     private String address;
     private String profileImage;
     private Integer gender;
-    List<String> roles;
 }

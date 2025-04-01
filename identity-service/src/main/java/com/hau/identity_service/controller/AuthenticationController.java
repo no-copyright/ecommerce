@@ -1,6 +1,10 @@
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.*;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.AuthenticationResponse;
+import com.hau.identity_service.dto.response.IntrospectResponse;
+import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.service.AuthenticationService;
 import com.hau.identity_service.service.ForgotPasswordService;
 import jakarta.validation.Valid;
@@ -34,19 +38,19 @@ public class AuthenticationController {
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
-    @PostMapping("/password-recovery/otp/verify/{username}")
-    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtpForgotPassword( // Changed response type to VerifyOtpResponse
-                                                                                   @PathVariable String username,
-                                                                                   @RequestBody VerifyOtpRequest verifyOtpRequest) {
-        ApiResponse<VerifyOtpResponse> apiResponse = forgotPasswordService.verifyOtp(username, verifyOtpRequest); // Changed response type
+    @PostMapping("/password-recovery/otp/verify") // Removed /{username}
+    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtpForgotPassword(
+            // Removed @PathVariable String username
+            @Valid @RequestBody VerifyOtpRequest verifyOtpRequest) { // Ensure validation
+        // Updated service call
+        ApiResponse<VerifyOtpResponse> apiResponse = forgotPasswordService.verifyOtp(verifyOtpRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
-    @PostMapping("/password-recovery/reset/{username}")
+    @PostMapping("/password-recovery/reset")
     public ResponseEntity<ApiResponse<String>> resetPassword(
-            @PathVariable String username,
-            @Valid @RequestBody ResetPasswordWithTokenRequest resetPasswordWithTokenRequest) { // Changed request type
-        ApiResponse<String> apiResponse = forgotPasswordService.resetPassword(username, resetPasswordWithTokenRequest); // Changed request type
+            @Valid @RequestBody ResetPasswordWithTokenRequest resetPasswordWithTokenRequest) {
+        ApiResponse<String> apiResponse = forgotPasswordService.resetPassword(resetPasswordWithTokenRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 }

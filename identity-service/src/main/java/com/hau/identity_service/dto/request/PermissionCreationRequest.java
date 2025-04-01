@@ -1,5 +1,4 @@
-package com.hau.identity_service.dto;
-
+package com.hau.identity_service.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class VerifyOtpResponse {
-    private String verificationToken;
+public class PermissionCreationRequest {
+    private String name;
+    private String description;
 }

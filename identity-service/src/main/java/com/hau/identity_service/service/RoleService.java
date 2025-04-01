@@ -1,8 +1,8 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.RoleCreationRequest;
-import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.entity.Role;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.RoleMapper;

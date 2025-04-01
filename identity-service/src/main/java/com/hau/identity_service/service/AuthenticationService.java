@@ -1,6 +1,10 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.AuthenticationRequest;
+import com.hau.identity_service.dto.request.IntrospectRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.AuthenticationResponse;
+import com.hau.identity_service.dto.response.IntrospectResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.UserRepository;
@@ -37,7 +41,7 @@ public class AuthenticationService {
     @Value("${jwt.issuer}")
     private String ISSUER;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.expirationMinutes}")
     private Long EXPIRATION;
 
     public ApiResponse<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest) {

@@ -1,8 +1,8 @@
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.PermissionCreationRequest;
-import com.hau.identity_service.dto.PermissionResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.PermissionCreationRequest;
+import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -105,7 +105,7 @@
     </div>
 
     <div class="content">
-        <p>Xin chào</p>
+        <p>Xin chào <strong th:text="${username}">admin</strong>!</p>
 
         <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Để tiếp tục quá trình này, vui lòng sử dụng mã OTP dưới đây:</p>
 
@@ -129,7 +129,7 @@
         <p class="warning">⚠️ Lưu ý quan trọng:</p>
         <ul>
             <li>Không chia sẻ mã OTP này với bất kỳ ai, kể cả nhân viên của chúng tôi.</li>
-            <li>Mã OTP chỉ có hiệu lực trong vòng <strong th:text="${expiryMinutes}">5</strong> phút.</li>
+            <li>Mã OTP chỉ có hiệu lực trong vòng <strong th:text="${expiryMinutes}">5</strong> phút và chỉ sử dụng được 1 lần.</li>
             <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và kiểm tra tài khoản của bạn.</li>
         </ul>
 
@@ -139,7 +139,7 @@
     <div class="footer">
         <p>Trân trọng,<br /><strong>Đội Ngũ Quản Trị Viên</strong></p>
         <p>© 2025 Đại học Kiến trúc Hà Nội. Tất cả các quyền được bảo lưu.</p>
-        <p>Địa chỉ: Km 10, Đường Trần Phú, phường Văn Quán, quận Hà Đông, thành phố Hà Nội</p>
+        <p>Địa chỉ: Km 10, Đường Nguyễn Trãi, Quận Thanh Xuân , TP Hà Nội.</p>
 
         <div class="social-icons">
             <a href="#" title="Facebook">Facebook</a> |

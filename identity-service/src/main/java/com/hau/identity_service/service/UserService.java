@@ -1,6 +1,11 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.ChangePasswordRequest;
+import com.hau.identity_service.dto.request.UserCreateRequest;
+import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
+import com.hau.identity_service.dto.request.UserUpdateRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.UserResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.UserMapper;
@@ -120,7 +125,20 @@ public class UserService {
         userMapper.toUserUpdateRequest(user, userUpdateRequest);
         var roles = roleRepository.findAllById(userUpdateRequest.getRoles());
         user.setRoles(new HashSet<>(roles));
+        user.setPassword(passwordEncoder.encode(userUpdateRequest.getPassword()));
 
+        userRepository.save(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Cập nhật thông tin user thành công")
+                .result(userMapper.toUserResponse(user))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> updateUserInfo(Long id, UserUpdateInfoRequest userUpdateInfoRequest) {
+        User user = findUserById(id);
+        userMapper.toUserUpdateInfoRequest(user, userUpdateInfoRequest);
         userRepository.save(user);
         return ApiResponse.<UserResponse>builder()
                 .status(HttpStatus.OK.value())

@@ -1,23 +1,32 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.ForgotPasswordRequest;
+import com.hau.identity_service.dto.request.ResetPasswordWithTokenRequest;
+import com.hau.identity_service.dto.request.VerifyOtpRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.UserRepository;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.text.ParseException;
+import java.time.Duration; // Import Duration
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -28,130 +37,197 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class ForgotPasswordService {
     private final UserRepository userRepository;
-    private final JavaMailSender javaMailSender;
     private final PasswordEncoder passwordEncoder;
-    private final TemplateEngine templateEngine;
+    private final EmailService emailService;
 
+    @Value("${jwt.signerKey}")
+    private String SINGER_KEY;
+
+    @Value("${jwt.issuer}")
+    private String ISSUER;
+
+    @Value("${jwt.passwordResetTokenExpiryMinutes}")
+    private long PASSWORD_RESET_TOKEN_EXPIRY_MINUTES;
+
+    @Value("${jwt.otpExpiryMinutes}")
+    private long OTP_EXPIRY_MINUTES;
+    @Value("${jwt.otpRequestCooldownMinutes}")
+    private long OTP_REQUEST_COOLDOWN_MINUTES;
+
+    private static final String PASSWORD_RESET_PURPOSE_CLAIM = "purpose";
+    private static final String PASSWORD_RESET_PURPOSE_VALUE = "PASSWORD_RESET";
+    // Caches
     private final Map<String, String> otpCache = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> otpExpiryCache = new ConcurrentHashMap<>();
-    private final Map<String, VerificationTokenData> verificationTokenCache = new ConcurrentHashMap<>();
-
-    private static final long OTP_EXPIRY_MINUTES = 5;
-    private static final long VERIFICATION_TOKEN_EXPIRY_MINUTES = 15;
+    // Cache for OTP request timestamps (Rate Limiting)
+    private final Map<String, LocalDateTime> otpRequestTimestamps = new ConcurrentHashMap<>();
+    // Cache for used reset tokens JTI (Single-Use Token Blacklist)
+    // Key: JTI (String), Value: Expiry time of the token (LocalDateTime) - helps with potential cleanup
+    private final Map<String, LocalDateTime> usedResetTokens = new ConcurrentHashMap<>();
 
 
     public ApiResponse<String> sendOtp(ForgotPasswordRequest forgotPasswordRequest) {
         String username = forgotPasswordRequest.getUsername();
+
+        // --- Rate Limiting Check ---
+        LocalDateTime lastRequestTime = otpRequestTimestamps.get(username);
+        LocalDateTime now = LocalDateTime.now();
+        if (lastRequestTime != null) {
+            Duration timeSinceLastRequest = Duration.between(lastRequestTime, now);
+            if (timeSinceLastRequest.toMinutes() < OTP_REQUEST_COOLDOWN_MINUTES) {
+                long waitMinutes = OTP_REQUEST_COOLDOWN_MINUTES - timeSinceLastRequest.toMinutes();
+                log.warn("Rate limit hit for OTP request by user: {}. Wait {} more minute(s).", username, waitMinutes);
+                return ApiResponse.<String>builder()
+                        .status(HttpStatus.TOO_MANY_REQUESTS.value()) // 429 Too Many Requests
+                        .message("Bạn vừa yêu cầu OTP gần đây. Vui lòng đợi " + waitMinutes + " phút nữa trước khi thử lại.")
+                        .result(null)
+                        .timestamp(now)
+                        .build();
+            }
+        }
+        // --- End Rate Limiting Check ---
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với username: " + username, null));
 
         String otp = generateOtp();
         otpCache.put(username, otp);
-        otpExpiryCache.put(username, LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
-        verificationTokenCache.remove(username);
+        otpExpiryCache.put(username, now.plusMinutes(OTP_EXPIRY_MINUTES));
 
-        try {
-            sendOtpEmail(user.getEmail(), otp, OTP_EXPIRY_MINUTES); // Truyền thêm expiryMinutes
-        } catch (MessagingException e) {
-            log.error("Lỗi gửi email OTP: ", e);
-            otpCache.remove(username);
-            otpExpiryCache.remove(username);
-            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi gửi email OTP", e.getMessage());
-        }
+        log.info("Generated OTP for user {}. Triggering async email.", username);
+
+        Context context = new Context();
+        context.setVariable("username", username);
+        context.setVariable("otp", otp);
+        context.setVariable("expiryMinutes", OTP_EXPIRY_MINUTES);
+
+        String emailSubject = "Mã OTP xác thực quên mật khẩu";
+        String templateName = "otp-email-template";
+
+        // Consider potential email sending failures. If email fails, should we still update the timestamp?
+        // For simplicity here, we update it assuming the *intent* to send was processed.
+        emailService.sendHtmlEmail(
+                user.getEmail(),
+                emailSubject,
+                templateName,
+                context
+        );
+
+        // Update the timestamp *after* successfully processing the request
+        otpRequestTimestamps.put(username, now);
 
         return ApiResponse.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến.")
+                .message("Yêu cầu gửi OTP đã được xử lý. Vui lòng kiểm tra email của bạn.")
                 .result(null)
-                .timestamp(LocalDateTime.now())
+                .timestamp(now)
                 .build();
     }
 
-    public ApiResponse<VerifyOtpResponse> verifyOtp(String username, VerifyOtpRequest verifyOtpRequest) {
+    public ApiResponse<VerifyOtpResponse> verifyOtp(VerifyOtpRequest verifyOtpRequest) {
+        // Extract username from the request body DTO
+        String username = verifyOtpRequest.getUsername();
+        int otp = verifyOtpRequest.getOtp(); // Get OTP from request
+
         String cachedOtp = otpCache.get(username);
         LocalDateTime expiryTime = otpExpiryCache.get(username);
         LocalDateTime now = LocalDateTime.now();
 
+        // --- Logic using the extracted username ---
         if (cachedOtp == null) {
-            return ApiResponse.<VerifyOtpResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("OTP không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            log.warn("Verify OTP attempt for user '{}' failed: No OTP found in cache.", username);
+            return buildVerifyOtpErrorResponse("OTP không hợp lệ hoặc chưa được yêu cầu. Vui lòng thử lại.");
         }
 
         if (expiryTime != null && now.isAfter(expiryTime)) {
+            log.warn("Verify OTP attempt for user '{}' failed: OTP expired.", username);
             otpCache.remove(username);
             otpExpiryCache.remove(username);
-            return ApiResponse.<VerifyOtpResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("OTP đã hết hạn. Vui lòng yêu cầu OTP mới.")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return buildVerifyOtpErrorResponse("OTP đã hết hạn. Vui lòng yêu cầu OTP mới.");
         }
 
-
-        if (!cachedOtp.equals(String.valueOf(verifyOtpRequest.getOtp()))) {
-            return ApiResponse.<VerifyOtpResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("OTP không chính xác. Vui lòng thử lại.")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+        if (!cachedOtp.equals(String.valueOf(otp))) {
+            log.warn("Verify OTP attempt for user '{}' failed: Incorrect OTP.", username);
+            // Consider adding rate limiting for failed attempts here
+            return buildVerifyOtpErrorResponse("OTP không chính xác. Vui lòng thử lại.");
         }
+        // --- End Logic ---
 
+        // OTP is correct, remove it from cache
         otpCache.remove(username);
         otpExpiryCache.remove(username);
+        log.info("OTP successfully verified for user '{}'.", username);
 
-        // Generate Verification Token
-        String verificationToken = UUID.randomUUID().toString();
-        LocalDateTime tokenExpiryTime = LocalDateTime.now().plusMinutes(VERIFICATION_TOKEN_EXPIRY_MINUTES);
-        verificationTokenCache.put(username, new VerificationTokenData(verificationToken, tokenExpiryTime));
-
+        // Generate Password Reset JWT
+        String passwordResetToken;
+        try {
+            passwordResetToken = generatePasswordResetToken(username); // Pass username to token generation
+            log.info("Generated password reset JWT for user {}", username);
+        } catch (JOSEException e) {
+            log.error("Error generating password reset JWT for user {}: {}", username, e.getMessage());
+            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo mã xác nhận đặt lại mật khẩu", e);
+        }
 
         return ApiResponse.<VerifyOtpResponse>builder()
                 .status(HttpStatus.OK.value())
-                .message("Xác thực OTP thành công. Mã xác nhận đã được tạo.")
+                .message("Xác thực OTP thành công. Mã xác nhận đặt lại mật khẩu đã được tạo.")
                 .result(VerifyOtpResponse.builder()
-                        .verificationToken(verificationToken)
+                        .verificationToken(passwordResetToken)
                         .build())
-                .timestamp(LocalDateTime.now())
+                .timestamp(now)
                 .build();
     }
 
-    public ApiResponse<String> resetPassword(String username, ResetPasswordWithTokenRequest resetPasswordWithTokenRequest) {
+    public ApiResponse<String> resetPassword(ResetPasswordWithTokenRequest resetPasswordWithTokenRequest) {
         String verificationToken = resetPasswordWithTokenRequest.getVerificationToken();
-        VerificationTokenData tokenData = verificationTokenCache.get(username);
+        String username;
+        String jti; // JWT ID
+        Date tokenExpiry;
 
+        JWTClaimsSet claimsSet;
+        try {
+            claimsSet = validatePasswordResetToken(verificationToken); // Validation now includes blacklist check
+            username = claimsSet.getSubject();
+            jti = claimsSet.getJWTID(); // Get JTI
+            tokenExpiry = claimsSet.getExpirationTime(); // Get expiry for blacklist
 
-        if (tokenData == null || !tokenData.getToken().equals(verificationToken)) {
+            if (username == null || username.trim().isEmpty() || jti == null || tokenExpiry == null) {
+                log.error("Validated password reset token is missing critical claims (sub, jti, or exp).");
+                throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi xử lý mã xác nhận.", null);
+            }
+        } catch (AppException e) {
             return ApiResponse.<String>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("Mã xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng xác thực OTP lại.")
+                    .status(e.getHttpStatus().value())
+                    .message(e.getMessage())
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        } catch (Exception e) {
+            log.error("Unexpected error processing password reset token: {}", e.getMessage(), e);
+            return ApiResponse.<String>builder()
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Lỗi không xác định khi xử lý mã đặt lại mật khẩu.")
                     .result(null)
                     .timestamp(LocalDateTime.now())
                     .build();
         }
-
-        if (tokenData.getExpiryTime().isBefore(LocalDateTime.now())) {
-            verificationTokenCache.remove(username);
-            return ApiResponse.<String>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("Mã xác nhận đã hết hạn. Vui lòng xác thực OTP lại.")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
-
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với username: " + username, null));
+                .orElseThrow(() -> {
+                    log.error("User '{}' not found after successful token validation (JTI: {}).", username, jti);
+                    return new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi không mong đợi: Không tìm thấy người dùng.", null);
+                });
 
         user.setPassword(passwordEncoder.encode(resetPasswordWithTokenRequest.getNewPassword()));
         userRepository.save(user);
-        verificationTokenCache.remove(username);
+
+        // --- Add token JTI to blacklist after successful password reset ---
+        // Store with original expiry time to allow potential cleanup later
+        usedResetTokens.put(jti, tokenExpiry.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        log.info("Password successfully reset for user {}. Token JTI {} blacklisted.", username, jti);
+        // Note: In a production/scaled environment, consider a more robust blacklist (e.g., Redis with TTL)
+        // and a cleanup mechanism for the in-memory map if used long-term.
+        // --- End blacklist update ---
 
         return ApiResponse.<String>builder()
                 .status(HttpStatus.OK.value())
@@ -161,6 +237,93 @@ public class ForgotPasswordService {
                 .build();
     }
 
+    // --- Helper Methods ---
+
+    private String generatePasswordResetToken(String username) throws JOSEException {
+        JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
+        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
+                .subject(username)
+                .issuer(ISSUER)
+                .issueTime(new Date())
+                .expirationTime(new Date(
+                        Instant.now().plus(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES).toEpochMilli()
+                ))
+                .claim(PASSWORD_RESET_PURPOSE_CLAIM, PASSWORD_RESET_PURPOSE_VALUE)
+                .jwtID(UUID.randomUUID().toString()) // Ensure unique JTI is generated
+                .build();
+
+        Payload payload = new Payload(jwtClaimsSet.toJSONObject());
+        JWSObject jwsObject = new JWSObject(jwsHeader, payload);
+        jwsObject.sign(new MACSigner(SINGER_KEY.getBytes()));
+        return jwsObject.serialize();
+    }
+
+    private JWTClaimsSet validatePasswordResetToken(String token) throws ParseException, JOSEException, AppException {
+        if (token == null || token.isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không được cung cấp.", null);
+        }
+
+        SignedJWT signedJWT = SignedJWT.parse(token);
+        JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
+
+        boolean signatureValid = signedJWT.verify(verifier);
+        if (!signatureValid) {
+            log.warn("Invalid password reset token signature received.");
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (chữ ký sai).", null);
+        }
+
+        JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+        String jti = claimsSet.getJWTID();
+        String tokenUsername = claimsSet.getSubject(); // Get username for logging context
+
+        // --- Check Blacklist (Single-Use) ---
+        if (jti != null && usedResetTokens.containsKey(jti)) {
+            log.warn("Attempt to reuse already used password reset token. User: {}, JTI: {}", tokenUsername, jti);
+            // Consider 409 Conflict, but 400 is also common.
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận đã được sử dụng. Vui lòng thực hiện lại quy trình quên mật khẩu.", null);
+        }
+        // --- End Blacklist Check ---
+
+        Date expirationTime = claimsSet.getExpirationTime();
+        if (expirationTime == null || expirationTime.before(new Date())) {
+            log.info("Expired password reset token used (User: {}, JTI: {}).", tokenUsername, jti);
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận đã hết hạn.", null);
+        }
+
+        String tokenIssuer = claimsSet.getIssuer();
+        if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
+            log.warn("Invalid issuer in password reset token. User: {}, Expected: {}, Found: {}. JTI: {}", tokenUsername, ISSUER, tokenIssuer, jti);
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (issuer sai).", null);
+        }
+
+        String purpose = claimsSet.getStringClaim(PASSWORD_RESET_PURPOSE_CLAIM);
+        if (!PASSWORD_RESET_PURPOSE_VALUE.equals(purpose)) {
+            log.warn("Incorrect purpose claim in token. User: {}, Expected: {}, Found: {}. JTI: {}", tokenUsername, PASSWORD_RESET_PURPOSE_VALUE, purpose, jti);
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (mục đích sai).", null);
+        }
+
+        if (tokenUsername == null || tokenUsername.trim().isEmpty()) {
+            log.warn("Password reset token is missing the subject (username) claim. JTI: {}", jti);
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (thiếu thông tin người dùng).", null);
+        }
+
+        Date issueTime = claimsSet.getIssueTime();
+        if (issueTime != null && issueTime.after(new Date())) {
+            log.warn("Password reset token used before issue time for user {}. JTI: {}", tokenUsername, jti);
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận chưa có hiệu lực.", null);
+        }
+
+        if (jti == null) {
+            // Should not happen if generation includes it, but check defensively.
+            log.error("Password reset token is missing the JTI claim. User: {}", tokenUsername);
+            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi xử lý mã xác nhận (thiếu JTI).", null);
+        }
+
+
+        log.info("Password reset token successfully validated for user {}", tokenUsername);
+        return claimsSet;
+    }
+
 
     private String generateOtp() {
         Random random = new Random();
@@ -168,31 +331,12 @@ public class ForgotPasswordService {
         return String.valueOf(otpValue);
     }
 
-    private void sendOtpEmail(String toEmail, String otp, long expiryMinutes) throws MessagingException {
-        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8"); // Use true for multipart, UTF-8 encoding
-
-        try {
-            helper.setTo(toEmail);
-            helper.setSubject("Mã OTP xác thực quên mật khẩu");
-
-            // 1. Create Thymeleaf Context
-            Context context = new Context();
-            context.setVariable("otp", otp); // Variable name matches th:text="${otp}"
-            context.setVariable("expiryMinutes", expiryMinutes); // Variable name matches [[${expiryMinutes}]]
-
-            // 2. Process the template using TemplateEngine
-            String emailContent = templateEngine.process("otp-email-template", context); // Use template name (without .html)
-
-            // 3. Set the processed HTML content
-            helper.setText(emailContent, true); // true indicates HTML content
-
-            javaMailSender.send(mimeMessage);
-            log.info("OTP email sent successfully to {}", toEmail);
-
-        } catch (MessagingException e) {
-            log.error("Error creating or sending OTP email to {}: {}", toEmail, e.getMessage());
-            throw e; // Re-throw to be handled by the caller if necessary
-        }
+    private ApiResponse<VerifyOtpResponse> buildVerifyOtpErrorResponse(String message) {
+        return ApiResponse.<VerifyOtpResponse>builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message(message)
+                .result(null)
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 }

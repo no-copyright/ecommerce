@@ -1,4 +1,4 @@
-package com.hau.identity_service.dto;
+package com.hau.identity_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,7 +9,9 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class VerificationTokenData {
-    private String token;
-    private LocalDateTime expiryTime;
+public class ErrorsResponse {
+    int status;
+    String message;
+    Object error;
+    LocalDateTime timestamp;
 }

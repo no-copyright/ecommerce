@@ -1,199 +1,12 @@
-/* ===== main/resources/application.yaml ===== */
-server:
-  port: 8080
-
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/identity_db
-    username: postgres
-    password: postgres
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: datdnk3@gmail.com
-    password: axee meht szca dkuw
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
-jwt:
-  signerKey: "qxNOdgKfw1UmyuQ68SKM+tmEVoeAUqgvr1/eg50ufWkQTizklguIDWNP3oOGv8bS"
-  expiration: 1440
-  issuer: identity-service
-
-
-
-/* ===== main/resources/templates/otp-email-template.html ===== */
-<!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mã OTP Xác Thực - Đặt Lại Mật Khẩu</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            background-color: #f9f9f9;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        .header {
-            background-color: #4285f4;
-            padding: 20px;
-            text-align: center;
-            color: white;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-
-        .content {
-            padding: 30px;
-        }
-        .otp-container {
-            background-color: #f5f8ff;
-            border: 1px solid #d1e0ff;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 25px 0;
-            text-align: center;
-        }
-        .otp-code {
-            font-size: 32px;
-            font-weight: bold;
-            color: #4285f4;
-            letter-spacing: 4px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-        }
-        .timer {
-            background-color: #ffe8e8;
-            border-radius: 4px;
-            padding: 8px 15px;
-            display: inline-block;
-            margin-top: 15px;
-            font-weight: bold;
-            color: #e53935;
-        }
-        .instructions {
-            margin: 25px 0;
-            padding: 15px;
-            background-color: #f5f5f5;
-            border-left: 4px solid #4285f4;
-        }
-        .footer {
-            background-color: #f5f5f5;
-            padding: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #666;
-        }
-        .social-icons {
-            margin-top: 15px;
-        }
-        .social-icons a {
-            display: inline-block;
-            margin: 0 10px;
-            color: #4285f4;
-            text-decoration: none;
-        }
-        .warning {
-            color: #e53935;
-            font-weight: bold;
-        }
-
-        @media only screen and (max-width: 600px) {
-            .container {
-                width: 100%;
-                border-radius: 0;
-            }
-            .content {
-                padding: 20px 15px;
-            }
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>Xác Thực Tài Khoản</h1>
-    </div>
-
-    <div class="content">
-        <p>Xin chào</p>
-
-        <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Để tiếp tục quá trình này, vui lòng sử dụng mã OTP dưới đây:</p>
-
-        <div class="otp-container">
-            <p>Mã OTP của bạn là</p>
-            <div class="otp-code" th:text="${otp}">123456</div>
-            <div class="timer">
-                Hết hạn sau <strong th:text="${expiryMinutes}">5</strong> phút
-            </div>
-        </div>
-
-        <div class="instructions">
-            <h3>Hướng dẫn:</h3>
-            <ol>
-                <li>Nhập mã OTP trên vào trang đặt lại mật khẩu.</li>
-                <li>Tạo mật khẩu mới an toàn cho tài khoản của bạn.</li>
-                <li>Đăng nhập bằng mật khẩu mới.</li>
-            </ol>
-        </div>
-
-        <p class="warning">⚠️ Lưu ý quan trọng:</p>
-        <ul>
-            <li>Không chia sẻ mã OTP này với bất kỳ ai, kể cả nhân viên của chúng tôi.</li>
-            <li>Mã OTP chỉ có hiệu lực trong vòng <strong th:text="${expiryMinutes}">5</strong> phút.</li>
-            <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và kiểm tra tài khoản của bạn.</li>
-        </ul>
-
-        <p>Nếu bạn gặp khó khăn hoặc cần trợ giúp, hãy liên hệ với đội ngũ hỗ trợ của chúng tôi qua email <a href="mailto:support@example.com">hausupport@gmail.com</a> hoặc hotline <strong>1900 1009</strong>.</p>
-    </div>
-
-    <div class="footer">
-        <p>Trân trọng,<br /><strong>Đội Ngũ Quản Trị Viên</strong></p>
-        <p>© 2025 Đại học Kiến trúc Hà Nội. Tất cả các quyền được bảo lưu.</p>
-        <p>Địa chỉ: Km 10, Đường Trần Phú, phường Văn Quán, quận Hà Đông, thành phố Hà Nội</p>
-
-        <div class="social-icons">
-            <a href="#" title="Facebook">Facebook</a> |
-            <a href="#" title="Instagram">Instagram</a> |
-            <a href="#" title="LinkedIn">LinkedIn</a>
-        </div>
-    </div>
-</div>
-</body>
-</html>
-
-/* ===== main/java/com/hau/identity_service/IdentityServiceApplication.java ===== */
+/* ===== java/com/hau/identity_service/IdentityServiceApplication.java ===== */
 package com.hau.identity_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
+@EnableAsync
 public class IdentityServiceApplication {
 
     public static void main(String[] args) {
@@ -203,7 +16,7 @@ public class IdentityServiceApplication {
 }
 
 
-/* ===== main/java/com/hau/identity_service/config/ApplicationInitConfig.java ===== */
+/* ===== java/com/hau/identity_service/config/ApplicationInitConfig.java ===== */
 package com.hau.identity_service.config;
 
 import com.hau.identity_service.entity.Role;
@@ -275,11 +88,11 @@ public class ApplicationInitConfig {
 }
 
 
-/* ===== main/java/com/hau/identity_service/config/JwtAuthenticationEntryPoint.java ===== */
+/* ===== java/com/hau/identity_service/config/JwtAuthenticationEntryPoint.java ===== */
 package com.hau.identity_service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hau.identity_service.dto.ApiResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -307,7 +120,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     }
 }
 
-/* ===== main/java/com/hau/identity_service/config/SecurityConfig.java ===== */
+/* ===== java/com/hau/identity_service/config/SecurityConfig.java ===== */
 package com.hau.identity_service.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -397,10 +210,14 @@ public class SecurityConfig {
     }
 }
 
-/* ===== main/java/com/hau/identity_service/controller/AuthenticationController.java ===== */
+/* ===== java/com/hau/identity_service/controller/AuthenticationController.java ===== */
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.*;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.AuthenticationResponse;
+import com.hau.identity_service.dto.response.IntrospectResponse;
+import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.service.AuthenticationService;
 import com.hau.identity_service.service.ForgotPasswordService;
 import jakarta.validation.Valid;
@@ -451,12 +268,12 @@ public class AuthenticationController {
     }
 }
 
-/* ===== main/java/com/hau/identity_service/controller/PermissionController.java ===== */
+/* ===== java/com/hau/identity_service/controller/PermissionController.java ===== */
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.PermissionCreationRequest;
-import com.hau.identity_service.dto.PermissionResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.PermissionCreationRequest;
+import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -496,12 +313,12 @@ public class PermissionController {
 }
 
 
-/* ===== main/java/com/hau/identity_service/controller/RoleController.java ===== */
+/* ===== java/com/hau/identity_service/controller/RoleController.java ===== */
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.RoleCreationRequest;
-import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.service.RoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -540,10 +357,15 @@ public class RoleController {
 }
 
 
-/* ===== main/java/com/hau/identity_service/controller/UserController.java ===== */
+/* ===== java/com/hau/identity_service/controller/UserController.java ===== */
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.ChangePasswordRequest;
+import com.hau.identity_service.dto.request.UserCreateRequest;
+import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
+import com.hau.identity_service.dto.request.UserUpdateRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.UserResponse;
 import com.hau.identity_service.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -578,10 +400,17 @@ public class UserController {
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }
 
-    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long userId, @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
         ApiResponse<UserResponse> userResponse = userService.updateUser(userId, userUpdateRequest);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PutMapping("/{userId}/info")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserInfo(@PathVariable Long userId, @Valid @RequestBody UserUpdateInfoRequest userUpdateInfoRequest) {
+        ApiResponse<UserResponse> userResponse = userService.updateUserInfo(userId, userUpdateInfoRequest);
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }
 
@@ -612,420 +441,7 @@ public class UserController {
     }
 }
 
-/* ===== main/java/com/hau/identity_service/dto/ApiResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ApiResponse<T> {
-    private int status;
-    private String message;
-    private T result;
-    LocalDateTime timestamp;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/AuthenticationRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Builder
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-
-public class AuthenticationRequest {
-    private String username;
-    private String password;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/AuthenticationResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Builder
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-
-public class AuthenticationResponse {
-    boolean authenticated;
-    private String token;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/ChangePasswordRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ChangePasswordRequest {
-    private String oldPassword;
-    private String newPassword;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/ErrorsResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ErrorsResponse {
-    int status;
-    String message;
-    Object error;
-    LocalDateTime timestamp;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/ForgotPasswordRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Builder
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ForgotPasswordRequest {
-    private String username;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/IntrospectRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class IntrospectRequest {
-    private String token;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/IntrospectResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class IntrospectResponse {
-    private boolean valid;
-    private String username;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/PermissionCreationRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class PermissionCreationRequest {
-    private String name;
-    private String description;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/PermissionResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class PermissionResponse {
-    private String name;
-    private String description;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/ResetPasswordRequest.java ===== */
-/* ===== main/java/com/hau/identity_service/dto/ResetPasswordRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ResetPasswordRequest {
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự")
-    private String newPassword;
-}
-
-/* ===== main/java/com/hau/identity_service/dto/ResetPasswordWithTokenRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ResetPasswordWithTokenRequest {
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
-    private String newPassword;
-    @NotBlank(message = "Mã xác nhận không được để trống")
-    private String verificationToken;
-}
-
-/* ===== main/java/com/hau/identity_service/dto/RoleCreationRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.*;
-
-import java.util.Set;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class RoleCreationRequest {
-    private String name;
-    private String description;
-    private Set<String> permissions;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/RoleResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.Set;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class RoleResponse {
-    private String name;
-    private String description;
-    private Set<PermissionResponse> permissions;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/UserCreateRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.Set;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class UserCreateRequest {
-    @NotBlank(message = "Username không được để trống")
-    private String username;
-    @Size(min = 6, message = "Password phải có ít nhất 6 ký tự")
-    private String password;
-    @Email(message = "Email không đúng định dạng")
-    @NotBlank(message = "Email không được để trống")
-    private String email;
-    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
-    private String phone;
-    private String address;
-    private String profileImage;
-    private Integer gender;
-    private Set<String> roles;
-}
-
-/* ===== main/java/com/hau/identity_service/dto/UserResponse.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.Set;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class UserResponse {
-    private String id;
-    private String username;
-    private String email;
-    private String phone;
-    private String address;
-    private String profileImage;
-    private Integer gender;
-    Set<RoleResponse> roles;
-}
-
-/* ===== main/java/com/hau/identity_service/dto/UserUpdateRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-
-public class UserUpdateRequest {
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không đúng định dạng")
-    private String email;
-    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
-    private String phone;
-    private String address;
-    private String profileImage;
-    private Integer gender;
-    List<String> roles;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/VerificationTokenData.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class VerificationTokenData {
-    private String token;
-    private LocalDateTime expiryTime;
-}
-
-/* ===== main/java/com/hau/identity_service/dto/VerifyOtpRequest.java ===== */
-package com.hau.identity_service.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Builder
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class VerifyOtpRequest {
-    private int otp;
-}
-
-
-/* ===== main/java/com/hau/identity_service/dto/VerifyOtpResponse.java ===== */
-package com.hau.identity_service.dto;
-
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class VerifyOtpResponse {
-    private String verificationToken;
-}
-
-
-/* ===== main/java/com/hau/identity_service/entity/Permission.java ===== */
+/* ===== java/com/hau/identity_service/entity/Permission.java ===== */
 package com.hau.identity_service.entity;
 
 import jakarta.persistence.Entity;
@@ -1046,7 +462,7 @@ public class Permission {
     private String description;
 }
 
-/* ===== main/java/com/hau/identity_service/entity/Role.java ===== */
+/* ===== java/com/hau/identity_service/entity/Role.java ===== */
 package com.hau.identity_service.entity;
 
 import jakarta.persistence.Entity;
@@ -1074,7 +490,7 @@ public class Role {
 }
 
 
-/* ===== main/java/com/hau/identity_service/entity/User.java ===== */
+/* ===== java/com/hau/identity_service/entity/User.java ===== */
 package com.hau.identity_service.entity;
 
 import jakarta.persistence.*;
@@ -1113,7 +529,7 @@ public class User {
 }
 
 
-/* ===== main/java/com/hau/identity_service/exception/AppException.java ===== */
+/* ===== java/com/hau/identity_service/exception/AppException.java ===== */
 package com.hau.identity_service.exception;
 
 import lombok.Getter;
@@ -1138,10 +554,10 @@ public class AppException extends RuntimeException {
 }
 
 
-/* ===== main/java/com/hau/identity_service/exception/GlobalExceptionHandler.java ===== */
+/* ===== java/com/hau/identity_service/exception/GlobalExceptionHandler.java ===== */
 package com.hau.identity_service.exception;
 
-import com.hau.identity_service.dto.ErrorsResponse;
+import com.hau.identity_service.dto.response.ErrorsResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -1259,10 +675,11 @@ public class GlobalExceptionHandler {
 }
 
 
-/* ===== main/java/com/hau/identity_service/mapper/PermissionMapper.java ===== */
+/* ===== java/com/hau/identity_service/mapper/PermissionMapper.java ===== */
 package com.hau.identity_service.mapper;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.PermissionCreationRequest;
+import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.entity.Permission;
 import org.mapstruct.Mapper;
 import org.mapstruct.NullValuePropertyMappingStrategy;
@@ -1274,11 +691,11 @@ public interface PermissionMapper {
 }
 
 
-/* ===== main/java/com/hau/identity_service/mapper/RoleMapper.java ===== */
+/* ===== java/com/hau/identity_service/mapper/RoleMapper.java ===== */
 package com.hau.identity_service.mapper;
 
-import com.hau.identity_service.dto.RoleCreationRequest;
-import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.entity.Role;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -1292,12 +709,13 @@ public interface RoleMapper {
 }
 
 
-/* ===== main/java/com/hau/identity_service/mapper/UserMapper.java ===== */
+/* ===== java/com/hau/identity_service/mapper/UserMapper.java ===== */
 package com.hau.identity_service.mapper;
 
-import com.hau.identity_service.dto.UserCreateRequest;
-import com.hau.identity_service.dto.UserResponse;
-import com.hau.identity_service.dto.UserUpdateRequest;
+import com.hau.identity_service.dto.request.UserCreateRequest;
+import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
+import com.hau.identity_service.dto.response.UserResponse;
+import com.hau.identity_service.dto.request.UserUpdateRequest;
 import com.hau.identity_service.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -1312,11 +730,12 @@ public interface UserMapper {
     @Mapping(target = "roles", ignore = true)
     void toUserUpdateRequest(@MappingTarget User user, UserUpdateRequest userUpdateRequest);
 
+    void toUserUpdateInfoRequest(@MappingTarget User user, UserUpdateInfoRequest userUpdateInfoRequest);
     UserResponse toUserResponse(User user);
 }
 
 
-/* ===== main/java/com/hau/identity_service/repository/PermissionRepository.java ===== */
+/* ===== java/com/hau/identity_service/repository/PermissionRepository.java ===== */
 package com.hau.identity_service.repository;
 
 import com.hau.identity_service.entity.Permission;
@@ -1332,7 +751,7 @@ public interface PermissionRepository extends JpaRepository<Permission, String>,
 }
 
 
-/* ===== main/java/com/hau/identity_service/repository/RoleRepository.java ===== */
+/* ===== java/com/hau/identity_service/repository/RoleRepository.java ===== */
 package com.hau.identity_service.repository;
 
 import com.hau.identity_service.entity.Role;
@@ -1348,7 +767,7 @@ public interface RoleRepository extends JpaRepository<Role, String>, JpaSpecific
 }
 
 
-/* ===== main/java/com/hau/identity_service/repository/UserRepository.java ===== */
+/* ===== java/com/hau/identity_service/repository/UserRepository.java ===== */
 package com.hau.identity_service.repository;
 
 import com.hau.identity_service.entity.User;
@@ -1365,10 +784,14 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 }
 
 
-/* ===== main/java/com/hau/identity_service/service/AuthenticationService.java ===== */
+/* ===== java/com/hau/identity_service/service/AuthenticationService.java ===== */
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.AuthenticationRequest;
+import com.hau.identity_service.dto.request.IntrospectRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.AuthenticationResponse;
+import com.hau.identity_service.dto.response.IntrospectResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.UserRepository;
@@ -1543,24 +966,64 @@ public class AuthenticationService {
     }
 }
 
-/* ===== main/java/com/hau/identity_service/service/ForgotPasswordService.java ===== */
+/* ===== java/com/hau/identity_service/service/EmailService.java ===== */
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class EmailService {
+
+    private final JavaMailSender javaMailSender;
+    private final TemplateEngine templateEngine;
+
+    @Async
+    public void sendHtmlEmail(String to, String subject, String templateName, Context context) {
+        log.info("Đang gửi email tới {}", to);
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            String htmlContent = templateEngine.process(templateName, context);
+            helper.setText(htmlContent, true);
+            javaMailSender.send(mimeMessage);
+            log.info("Async Email '{}' gửi thành công tới {}", subject, to);
+        } catch (MessagingException e) {
+            log.error("Async Email gửi không thành công từ '{}' đến {}: {}", subject, to, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Đã xảy ra lỗi khi gửi email từ '{}' đến {}: {}", subject, to, e.getMessage(), e);
+        }
+    }
+}
+
+/* ===== java/com/hau/identity_service/service/ForgotPasswordService.java ===== */
+package com.hau.identity_service.service;
+
+import com.hau.identity_service.dto.request.ForgotPasswordRequest;
+import com.hau.identity_service.dto.request.ResetPasswordWithTokenRequest;
+import com.hau.identity_service.dto.request.VerifyOtpRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
@@ -1574,9 +1037,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class ForgotPasswordService {
     private final UserRepository userRepository;
-    private final JavaMailSender javaMailSender;
     private final PasswordEncoder passwordEncoder;
-    private final TemplateEngine templateEngine;
+    private final EmailService emailService;
 
     private final Map<String, String> otpCache = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> otpExpiryCache = new ConcurrentHashMap<>();
@@ -1596,18 +1058,27 @@ public class ForgotPasswordService {
         otpExpiryCache.put(username, LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
         verificationTokenCache.remove(username);
 
-        try {
-            sendOtpEmail(user.getEmail(), otp, OTP_EXPIRY_MINUTES); // Truyền thêm expiryMinutes
-        } catch (MessagingException e) {
-            log.error("Lỗi gửi email OTP: ", e);
-            otpCache.remove(username);
-            otpExpiryCache.remove(username);
-            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi gửi email OTP", e.getMessage());
-        }
+        log.info("Generated OTP for user {}. Triggering async email using generic sender.", username);
+
+
+        Context context = new Context();
+        context.setVariable("username", username);
+        context.setVariable("otp", otp);
+        context.setVariable("expiryMinutes", OTP_EXPIRY_MINUTES);
+
+        String emailSubject = "Mã OTP xác thực quên mật khẩu";
+        String templateName = "otp-email-template";
+
+        emailService.sendHtmlEmail(
+                user.getEmail(),
+                emailSubject,
+                templateName,
+                context
+        );
 
         return ApiResponse.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến.")
+                .message("Yêu cầu gửi OTP đã được xử lý. Vui lòng kiểm tra email của bạn.")
                 .result(null)
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -1707,48 +1178,20 @@ public class ForgotPasswordService {
                 .build();
     }
 
-
+    // generateOtp remains the same
     private String generateOtp() {
         Random random = new Random();
         int otpValue = 100000 + random.nextInt(900000);
         return String.valueOf(otpValue);
     }
-
-    private void sendOtpEmail(String toEmail, String otp, long expiryMinutes) throws MessagingException {
-        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8"); // Use true for multipart, UTF-8 encoding
-
-        try {
-            helper.setTo(toEmail);
-            helper.setSubject("Mã OTP xác thực quên mật khẩu");
-
-            // 1. Create Thymeleaf Context
-            Context context = new Context();
-            context.setVariable("otp", otp); // Variable name matches th:text="${otp}"
-            context.setVariable("expiryMinutes", expiryMinutes); // Variable name matches [[${expiryMinutes}]]
-
-            // 2. Process the template using TemplateEngine
-            String emailContent = templateEngine.process("otp-email-template", context); // Use template name (without .html)
-
-            // 3. Set the processed HTML content
-            helper.setText(emailContent, true); // true indicates HTML content
-
-            javaMailSender.send(mimeMessage);
-            log.info("OTP email sent successfully to {}", toEmail);
-
-        } catch (MessagingException e) {
-            log.error("Error creating or sending OTP email to {}: {}", toEmail, e.getMessage());
-            throw e; // Re-throw to be handled by the caller if necessary
-        }
-    }
 }
 
-/* ===== main/java/com/hau/identity_service/service/PermissionService.java ===== */
+/* ===== java/com/hau/identity_service/service/PermissionService.java ===== */
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.PermissionCreationRequest;
-import com.hau.identity_service.dto.PermissionResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.PermissionCreationRequest;
+import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.entity.Permission;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.PermissionMapper;
@@ -1807,12 +1250,12 @@ public class PermissionService {
 }
 
 
-/* ===== main/java/com/hau/identity_service/service/RoleService.java ===== */
+/* ===== java/com/hau/identity_service/service/RoleService.java ===== */
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.ApiResponse;
-import com.hau.identity_service.dto.RoleCreationRequest;
-import com.hau.identity_service.dto.RoleResponse;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.entity.Role;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.RoleMapper;
@@ -1886,10 +1329,15 @@ public class RoleService {
 }
 
 
-/* ===== main/java/com/hau/identity_service/service/UserService.java ===== */
+/* ===== java/com/hau/identity_service/service/UserService.java ===== */
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.ChangePasswordRequest;
+import com.hau.identity_service.dto.request.UserCreateRequest;
+import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
+import com.hau.identity_service.dto.request.UserUpdateRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.UserResponse;
 import com.hau.identity_service.entity.User;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.UserMapper;
@@ -2009,7 +1457,20 @@ public class UserService {
         userMapper.toUserUpdateRequest(user, userUpdateRequest);
         var roles = roleRepository.findAllById(userUpdateRequest.getRoles());
         user.setRoles(new HashSet<>(roles));
+        user.setPassword(passwordEncoder.encode(userUpdateRequest.getPassword()));
 
+        userRepository.save(user);
+        return ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Cập nhật thông tin user thành công")
+                .result(userMapper.toUserResponse(user))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public ApiResponse<UserResponse> updateUserInfo(Long id, UserUpdateInfoRequest userUpdateInfoRequest) {
+        User user = findUserById(id);
+        userMapper.toUserUpdateInfoRequest(user, userUpdateInfoRequest);
         userRepository.save(user);
         return ApiResponse.<UserResponse>builder()
                 .status(HttpStatus.OK.value())
@@ -2070,4 +1531,446 @@ public class UserService {
         }
     }
 }
+
+/* ===== java/com/hau/identity_service/dto/request/AuthenticationRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+
+public class AuthenticationRequest {
+    private String username;
+    private String password;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/ChangePasswordRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ChangePasswordRequest {
+    private String oldPassword;
+    private String newPassword;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/ForgotPasswordRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ForgotPasswordRequest {
+    private String username;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/IntrospectRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class IntrospectRequest {
+    private String token;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/PermissionCreationRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PermissionCreationRequest {
+    private String name;
+    private String description;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/ResetPasswordRequest.java ===== */
+/* ===== main/java/com/hau/identity_service/dto/ResetPasswordRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ResetPasswordRequest {
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự")
+    private String newPassword;
+}
+
+/* ===== java/com/hau/identity_service/dto/request/ResetPasswordWithTokenRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ResetPasswordWithTokenRequest {
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
+    private String newPassword;
+    @NotBlank(message = "Mã xác nhận không được để trống")
+    private String verificationToken;
+}
+
+/* ===== java/com/hau/identity_service/dto/request/RoleCreationRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.*;
+
+import java.util.Set;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class RoleCreationRequest {
+    private String name;
+    private String description;
+    private Set<String> permissions;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/UserCreateRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UserCreateRequest {
+    @NotBlank(message = "Username không được để trống")
+    private String username;
+    @Size(min = 6, message = "Password phải có ít nhất 6 ký tự")
+    private String password;
+    @Email(message = "Email không đúng định dạng")
+    @NotBlank(message = "Email không được để trống")
+    private String email;
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    private Set<String> roles;
+}
+
+/* ===== java/com/hau/identity_service/dto/request/UserUpdateInfoRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserUpdateInfoRequest {
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
+    private String email;
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/request/UserUpdateRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+
+public class UserUpdateRequest {
+    @Size(min = 6, message = "Password phải có ít nhất 6 ký tự")
+    private String password;
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
+    private String email;
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải có 10 chữ số")
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    List<String> roles;
+}
+
+/* ===== java/com/hau/identity_service/dto/request/VerifyOtpRequest.java ===== */
+package com.hau.identity_service.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class VerifyOtpRequest {
+    private int otp;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/ApiResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApiResponse<T> {
+    private int status;
+    private String message;
+    private T result;
+    LocalDateTime timestamp;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/AuthenticationResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+
+public class AuthenticationResponse {
+    boolean authenticated;
+    private String token;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/ErrorsResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ErrorsResponse {
+    int status;
+    String message;
+    Object error;
+    LocalDateTime timestamp;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/IntrospectResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class IntrospectResponse {
+    private boolean valid;
+    private String username;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/PermissionResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PermissionResponse {
+    private String name;
+    private String description;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/RoleResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class RoleResponse {
+    private String name;
+    private String description;
+    private Set<PermissionResponse> permissions;
+}
+
+
+/* ===== java/com/hau/identity_service/dto/response/UserResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Set;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UserResponse {
+    private String id;
+    private String username;
+    private String email;
+    private String phone;
+    private String address;
+    private String profileImage;
+    private Integer gender;
+    Set<RoleResponse> roles;
+}
+
+/* ===== java/com/hau/identity_service/dto/response/VerificationTokenData.java ===== */
+package com.hau.identity_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class VerificationTokenData {
+    private String token;
+    private LocalDateTime expiryTime;
+}
+
+/* ===== java/com/hau/identity_service/dto/response/VerifyOtpResponse.java ===== */
+package com.hau.identity_service.dto.response;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class VerifyOtpResponse {
+    private String verificationToken;
+}
+
 

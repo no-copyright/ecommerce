@@ -1,6 +1,6 @@
 package com.hau.identity_service.exception;
 
-import com.hau.identity_service.dto.ErrorsResponse;
+import com.hau.identity_service.dto.response.ErrorsResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

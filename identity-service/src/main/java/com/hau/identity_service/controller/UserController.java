@@ -1,6 +1,11 @@
 package com.hau.identity_service.controller;
 
-import com.hau.identity_service.dto.*;
+import com.hau.identity_service.dto.request.ChangePasswordRequest;
+import com.hau.identity_service.dto.request.UserCreateRequest;
+import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
+import com.hau.identity_service.dto.request.UserUpdateRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
+import com.hau.identity_service.dto.response.UserResponse;
 import com.hau.identity_service.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,10 +40,17 @@ public class UserController {
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }
 
-    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long userId, @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
         ApiResponse<UserResponse> userResponse = userService.updateUser(userId, userUpdateRequest);
+        return new ResponseEntity<>(userResponse, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
+    @PutMapping("/{userId}/info")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserInfo(@PathVariable Long userId, @Valid @RequestBody UserUpdateInfoRequest userUpdateInfoRequest) {
+        ApiResponse<UserResponse> userResponse = userService.updateUserInfo(userId, userUpdateInfoRequest);
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }
 
