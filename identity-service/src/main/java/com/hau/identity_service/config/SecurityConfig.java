@@ -29,6 +29,7 @@ public class SecurityConfig {
             "/api/v1/auth/introspect",
             "/api/v1/auth/login",
             "/api/v1/auth/logout",
+            "/api/v1/auth/refresh-token",
             "/api/v1/auth/password-recovery/otp",
             "/api/v1/auth/password-recovery/otp/verify",
             "/api/v1/auth/password-recovery/reset",

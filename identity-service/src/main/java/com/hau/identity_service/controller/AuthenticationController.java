@@ -7,6 +7,7 @@ import com.hau.identity_service.dto.response.IntrospectResponse;
 import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.service.AuthenticationService;
 import com.hau.identity_service.service.ForgotPasswordService;
+import com.hau.identity_service.service.TokenService;
 import com.nimbusds.jose.JOSEException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.text.ParseException;
 public class AuthenticationController {
     private final AuthenticationService authenticationService;
     private final ForgotPasswordService forgotPasswordService;
+    private final TokenService tokenService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
@@ -32,6 +34,12 @@ public class AuthenticationController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest logoutRequest) throws ParseException, JOSEException {
         ApiResponse<Void> apiResponse = authenticationService.logout(logoutRequest);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> refreshToken(@RequestBody RefreshTokenRequest refreshTokenRequest) throws ParseException, JOSEException {
+        ApiResponse<AuthenticationResponse> apiResponse = tokenService.refreshToken(refreshTokenRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 

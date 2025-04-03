@@ -78,7 +78,7 @@ public class AuthenticationService {
     }
 
     public ApiResponse<Void> logout(LogoutRequest logoutRequest) throws ParseException, JOSEException {
-        var signToken = verifyToken(logoutRequest.getToken());
+        var signToken = tokenService.verifyToken(logoutRequest.getToken());
         String jit = signToken.getJWTClaimsSet().getJWTID();
         Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
 
@@ -95,36 +95,7 @@ public class AuthenticationService {
                 .build();
     }
 
-    private SignedJWT verifyToken(String token) throws JOSEException, ParseException {
-        JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
-        SignedJWT signedJWT = SignedJWT.parse(token);
-        JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
 
-        boolean signatureValid = signedJWT.verify(verifier);
-        if (!signatureValid) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Chữ ký token không hợp lệ", null);
-        }
-
-        Date expirationTime = claimsSet.getExpirationTime();
-        if (expirationTime == null || expirationTime.before(new Date())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hạn", null);
-        }
-
-        String tokenIssuer = claimsSet.getIssuer();
-        if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token issuer không hợp lệ", null);
-        }
-        Date issueTime = claimsSet.getIssueTime();
-        if (issueTime != null && issueTime.after(new Date())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token chưa có hiệu lực", null);
-        }
-
-        if (invalidatedTokenRepository.existsById(claimsSet.getJWTID())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hiệu lực", null);
-        }
-
-        return signedJWT;
-    }
 
     public ApiResponse<IntrospectResponse> introspect(IntrospectRequest introspectRequest) {
         String token = introspectRequest.getToken();
@@ -162,8 +133,5 @@ public class AuthenticationService {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
-
-
-
 
 }
