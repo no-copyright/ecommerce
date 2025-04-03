@@ -12,12 +12,8 @@ import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.InvalidatedTokenRepository;
 import com.hau.identity_service.repository.UserRepository;
 import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.MACVerifier;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,14 +30,6 @@ public class AuthenticationService {
     private final InvalidatedTokenRepository invalidatedTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
-
-    @Value("${jwt.signerKey}")
-    private String SINGER_KEY;
-
-    @Value("${jwt.issuer}")
-    private String ISSUER;
-
-
 
     public ApiResponse<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest) {
         User user = userRepository.findByUsername(authenticationRequest.getUsername())
@@ -77,8 +65,8 @@ public class AuthenticationService {
                 .build();
     }
 
-    public ApiResponse<Void> logout(LogoutRequest logoutRequest) throws ParseException, JOSEException {
-        var signToken = tokenService.verifyToken(logoutRequest.getToken());
+    public ApiResponse<Void> logout(LogoutRequest logoutRequest) throws ParseException {
+        var signToken = tokenService.verifyToken(logoutRequest.getToken(), true);
         String jit = signToken.getJWTClaimsSet().getJWTID();
         Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
 

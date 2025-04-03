@@ -4,6 +4,7 @@ import com.hau.identity_service.dto.response.ApiResponse;
 import com.hau.identity_service.dto.request.PermissionCreationRequest;
 import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.service.PermissionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class PermissionController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<ApiResponse<PermissionResponse>> createPermission(@RequestBody PermissionCreationRequest permissionCreationRequest) {
+    public ResponseEntity<ApiResponse<PermissionResponse>> createPermission(@RequestBody @Valid PermissionCreationRequest permissionCreationRequest) {
         ApiResponse<PermissionResponse> apiResponse = permissionService.createPermission(permissionCreationRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }

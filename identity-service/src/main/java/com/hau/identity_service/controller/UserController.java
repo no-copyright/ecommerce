@@ -56,7 +56,7 @@ public class UserController {
 
     @PreAuthorize("hasRole('ADMIN') or @userService.isOwnerOfUser(#userId, authentication)")
     @PatchMapping("/{userId}/password")
-    public ResponseEntity<ApiResponse<UserResponse>> updatePassword(@PathVariable Long userId, @RequestBody ChangePasswordRequest changePasswordRequest) {
+    public ResponseEntity<ApiResponse<UserResponse>> updatePassword(@PathVariable Long userId, @RequestBody @Valid ChangePasswordRequest changePasswordRequest) {
         ApiResponse<UserResponse> userResponse = userService.changePassword(userId, changePasswordRequest);
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
     }

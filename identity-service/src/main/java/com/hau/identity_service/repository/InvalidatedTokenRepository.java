@@ -3,7 +3,6 @@ package com.hau.identity_service.repository;
 import com.hau.identity_service.entity.InvalidatedToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 

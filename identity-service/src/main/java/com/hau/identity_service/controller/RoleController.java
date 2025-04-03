@@ -4,6 +4,7 @@ import com.hau.identity_service.dto.response.ApiResponse;
 import com.hau.identity_service.dto.request.RoleCreationRequest;
 import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.service.RoleService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class RoleController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<ApiResponse<RoleResponse>> createRole(@RequestBody RoleCreationRequest roleRequest) {
+    public ResponseEntity<ApiResponse<RoleResponse>> createRole(@RequestBody @Valid RoleCreationRequest roleRequest) {
         ApiResponse<RoleResponse> apiResponse = roleService.createRole(roleRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }

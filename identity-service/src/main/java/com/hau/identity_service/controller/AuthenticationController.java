@@ -26,7 +26,7 @@ public class AuthenticationController {
     private final TokenService tokenService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody @Valid AuthenticationRequest authenticationRequest) {
         ApiResponse<AuthenticationResponse> apiResponse = authenticationService.authenticate(authenticationRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
@@ -50,16 +50,14 @@ public class AuthenticationController {
     }
 
     @PostMapping("/password-recovery/otp")
-    public ResponseEntity<ApiResponse<String>> sendOtpForgotPassword(@RequestBody ForgotPasswordRequest forgotPasswordRequest) {
+    public ResponseEntity<ApiResponse<String>> sendOtpForgotPassword(@RequestBody @Valid ForgotPasswordRequest forgotPasswordRequest) {
         ApiResponse<String> apiResponse = forgotPasswordService.sendOtp(forgotPasswordRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
-    @PostMapping("/password-recovery/otp/verify") // Removed /{username}
+    @PostMapping("/password-recovery/otp/verify")
     public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtpForgotPassword(
-            // Removed @PathVariable String username
-            @Valid @RequestBody VerifyOtpRequest verifyOtpRequest) { // Ensure validation
-        // Updated service call
+            @Valid @RequestBody VerifyOtpRequest verifyOtpRequest) {
         ApiResponse<VerifyOtpResponse> apiResponse = forgotPasswordService.verifyOtp(verifyOtpRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }

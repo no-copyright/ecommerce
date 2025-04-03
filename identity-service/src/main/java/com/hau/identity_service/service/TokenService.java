@@ -37,102 +37,120 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @RequiredArgsConstructor
 public class TokenService {
+
     @Value("${jwt.signerKey}")
-    private String SINGER_KEY;
+    private String signerKey;
 
     @Value("${jwt.issuer}")
-    private String ISSUER;
+    private String issuer;
 
     @Value("${jwt.expirationMinutes}")
-    private Long EXPIRATION;
+    private Long expiration;
+
+    @Value("${jwt.expirationRefreshMinutes}")
+    private Long expirationRefresh;
 
     private final InvalidatedTokenRepository invalidatedTokenRepository;
     private final UserRepository userRepository;
 
-
-    public IntrospectResponse validateToken(String token) {
-        if (token == null || token.isEmpty()) {
-            return IntrospectResponse.builder().valid(false).build();
-        }
-
+    private JWTClaimsSet validateTokenClaims(String token, boolean isRefresh) throws AppException {
         try {
-            JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
+            JWSVerifier verifier = new MACVerifier(signerKey.getBytes());
             SignedJWT signedJWT = SignedJWT.parse(token);
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
 
-            // Kiểm tra chữ ký
             if (!signedJWT.verify(verifier)) {
-                return IntrospectResponse.builder().valid(false).build();
+                throw new AppException(HttpStatus.BAD_REQUEST, "Chữ ký token không hợp lệ", null);
             }
 
-            // Kiểm tra thời hạn
-            Date expirationTime = claimsSet.getExpirationTime();
+            Date expirationTime = (isRefresh)
+                    ? new Date(claimsSet.getIssueTime().toInstant().plus(expirationRefresh, ChronoUnit.MINUTES).toEpochMilli())
+                    : claimsSet.getExpirationTime();
+
             if (expirationTime == null || expirationTime.before(new Date())) {
-                return IntrospectResponse.builder().valid(false).build();
+                throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hạn", null);
             }
 
-            // Kiểm tra issuer
-            String tokenIssuer = claimsSet.getIssuer();
-            if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
-                return IntrospectResponse.builder().valid(false).build();
+            if (claimsSet.getIssuer() == null || !claimsSet.getIssuer().equals(issuer)) {
+                throw new AppException(HttpStatus.BAD_REQUEST, "Token issuer không hợp lệ", null);
             }
 
-            // Kiểm tra thời gian phát hành
-            Date issueTime = claimsSet.getIssueTime();
-            if (issueTime != null && issueTime.after(new Date())) {
-                return IntrospectResponse.builder().valid(false).build();
+            if (claimsSet.getIssueTime() != null && claimsSet.getIssueTime().after(new Date())) {
+                throw new AppException(HttpStatus.BAD_REQUEST, "Token chưa có hiệu lực", null);
             }
 
-            // Kiểm tra token đã bị vô hiệu hóa chưa
             if (invalidatedTokenRepository.existsById(claimsSet.getJWTID())) {
-                return IntrospectResponse.builder().valid(false).build();
+                throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hiệu lực", null);
             }
 
+            return claimsSet;
+
+        } catch (ParseException | JOSEException e) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "Token không hợp lệ", null);
+        }
+    }
+
+    public SignedJWT verifyToken(String token, boolean isRefresh) throws AppException {
+        try {
+            validateTokenClaims(token, isRefresh);
+            return SignedJWT.parse(token);
+        } catch (ParseException e) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "Token không hợp lệ", null);
+        }
+    }
+
+    public IntrospectResponse validateToken(String token) {
+        if (token == null || token.isEmpty()) {
+            return IntrospectResponse.builder().valid(false).build(); // Use the builder directly
+        }
+        try {
+            JWTClaimsSet claimsSet = validateTokenClaims(token, false);
             return IntrospectResponse.builder()
                     .valid(true)
                     .username(claimsSet.getSubject())
                     .build();
-        } catch (Exception e) {
-            return IntrospectResponse.builder().valid(false).build();
+        } catch (AppException e) {
+            return IntrospectResponse.builder().valid(false).build(); // Consistent error handling
         }
     }
+
 
     public String generateToken(User user) throws JOSEException {
         JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
-                .issuer(ISSUER)
+                .issuer(issuer)
                 .issueTime(new Date())
-                .expirationTime(new Date(
-                        Instant.now().plus(EXPIRATION, ChronoUnit.MINUTES).toEpochMilli()
-                ))
+                .expirationTime(new Date(Instant.now().plus(expiration, ChronoUnit.MINUTES).toEpochMilli()))
                 .claim("scope", buildScope(user))
                 .jwtID(UUID.randomUUID().toString())
                 .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
         JWSObject jwsObject = new JWSObject(jwsHeader, payload);
-        jwsObject.sign(new MACSigner(SINGER_KEY.getBytes()));
+        jwsObject.sign(new MACSigner(signerKey.getBytes()));
         return jwsObject.serialize();
     }
 
     public ApiResponse<AuthenticationResponse> refreshToken(RefreshTokenRequest refreshTokenRequest) throws JOSEException, ParseException {
-        var signedJWT = verifyToken(refreshTokenRequest.getToken());
+        SignedJWT signedJWT = verifyToken(refreshTokenRequest.getToken(), true);
 
-        var jit = signedJWT.getJWTClaimsSet().getJWTID();
-        var expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+        String jwtId = signedJWT.getJWTClaimsSet().getJWTID();
+        Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
 
-        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
-                .id(jit)
+        invalidatedTokenRepository.save(InvalidatedToken.builder()
+                .id(jwtId)
                 .expiryDate(expiryTime)
-                .build();
-        invalidatedTokenRepository.save(invalidatedToken);
-        var username = signedJWT.getJWTClaimsSet().getSubject();
+                .build());
+
+        String username = signedJWT.getJWTClaimsSet().getSubject();
         log.info("Refresh token for user: {}", username);
-        var user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, "Người dùng không tồn tại", null));
+
         String token = generateToken(user);
         log.info("Refresh token: {}", token);
+
         return ApiResponse.<AuthenticationResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Làm mới token thành công")
@@ -144,36 +162,7 @@ public class TokenService {
                 .build();
     }
 
-    public SignedJWT verifyToken(String token) throws JOSEException, ParseException {
-        JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
-        SignedJWT signedJWT = SignedJWT.parse(token);
-        JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
 
-        boolean signatureValid = signedJWT.verify(verifier);
-        if (!signatureValid) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Chữ ký token không hợp lệ", null);
-        }
-
-        Date expirationTime = claimsSet.getExpirationTime();
-        if (expirationTime == null || expirationTime.before(new Date())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hạn", null);
-        }
-
-        String tokenIssuer = claimsSet.getIssuer();
-        if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token issuer không hợp lệ", null);
-        }
-        Date issueTime = claimsSet.getIssueTime();
-        if (issueTime != null && issueTime.after(new Date())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token chưa có hiệu lực", null);
-        }
-
-        if (invalidatedTokenRepository.existsById(claimsSet.getJWTID())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token đã hết hiệu lực", null);
-        }
-
-        return signedJWT;
-    }
 
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");
@@ -188,14 +177,12 @@ public class TokenService {
         return stringJoiner.toString();
     }
 
-
     @Scheduled(fixedRate = 1440, timeUnit = TimeUnit.MINUTES)
     public void cleanupExpiredTokens() {
         LocalDateTime now = LocalDateTime.now();
-        System.out.println("Starting token cleanup at: " + now);
         Date date = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
         List<InvalidatedToken> expiredTokens = invalidatedTokenRepository.findByExpiryDateLessThanEqual(date);
         invalidatedTokenRepository.deleteAll(expiredTokens);
-        System.out.println("Cleaned up " + expiredTokens.size() + " expired tokens.");
+        log.info("Cleaned up {} expired tokens.", expiredTokens.size()); // Use SLF4J
     }
 }
