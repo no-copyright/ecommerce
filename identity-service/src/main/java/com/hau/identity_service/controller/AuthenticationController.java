@@ -7,11 +7,14 @@ import com.hau.identity_service.dto.response.IntrospectResponse;
 import com.hau.identity_service.dto.response.VerifyOtpResponse;
 import com.hau.identity_service.service.AuthenticationService;
 import com.hau.identity_service.service.ForgotPasswordService;
+import com.nimbusds.jose.JOSEException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.text.ParseException;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,13 +24,19 @@ public class AuthenticationController {
     private final ForgotPasswordService forgotPasswordService;
 
     @PostMapping("/login")
-    private ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
         ApiResponse<AuthenticationResponse> apiResponse = authenticationService.authenticate(authenticationRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest logoutRequest) throws ParseException, JOSEException {
+        ApiResponse<Void> apiResponse = authenticationService.logout(logoutRequest);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
     @PostMapping("/introspect")
-    private ResponseEntity<ApiResponse<IntrospectResponse>> introspect(@RequestBody IntrospectRequest request) {
+    public ResponseEntity<ApiResponse<IntrospectResponse>> introspect(@RequestBody IntrospectRequest request) {
         ApiResponse<IntrospectResponse> apiResponse = authenticationService.introspect(request);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
