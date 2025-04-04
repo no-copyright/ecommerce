@@ -32,7 +32,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest logoutRequest) throws ParseException, JOSEException {
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest logoutRequest) throws ParseException {
         ApiResponse<Void> apiResponse = authenticationService.logout(logoutRequest);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }

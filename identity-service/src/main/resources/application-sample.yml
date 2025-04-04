@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  main:
+    lazy-initialization: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/identity_db
+    username:
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+jwt:
+  signerKey: ""
+  expirationMinutes: 1440
+  expirationRefreshMinutes: 7200
+  issuer: identity-service
+  passwordResetTokenExpiryMinutes: 15
+  otpExpiryMinutes: 5
+  otpRequestCooldownMinutes: 5

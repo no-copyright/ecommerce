@@ -20,10 +20,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-
-//    @Value("${jwt.signerKey}")
-//    private String SIGNER_KEY;
-
     private final String[] PUBLIC_ENDPOINT_POST = {
             "/api/v1/users",
             "/api/v1/auth/introspect",

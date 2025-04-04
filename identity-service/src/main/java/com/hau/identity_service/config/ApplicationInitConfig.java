@@ -20,7 +20,6 @@ import java.util.Set;
 public class ApplicationInitConfig {
 
     private final PasswordEncoder passwordEncoder;
-//    private final RoleRepository roleRepository;
 
     @Bean
     ApplicationRunner applicationRunner(UserRepository userRepository, RoleRepository roleRepository) {

@@ -56,13 +56,12 @@ public class ForgotPasswordService {
 
     private static final String PASSWORD_RESET_PURPOSE_CLAIM = "purpose";
     private static final String PASSWORD_RESET_PURPOSE_VALUE = "PASSWORD_RESET";
-    // Caches
+
     private final Map<String, String> otpCache = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> otpExpiryCache = new ConcurrentHashMap<>();
-    // Cache for OTP request timestamps (Rate Limiting)
+
     private final Map<String, LocalDateTime> otpRequestTimestamps = new ConcurrentHashMap<>();
-    // Cache for used reset tokens JTI (Single-Use Token Blacklist)
-    // Key: JTI (String), Value: Expiry time of the token (LocalDateTime) - helps with potential cleanup
+
     private final Map<String, LocalDateTime> usedResetTokens = new ConcurrentHashMap<>();
 
 
@@ -78,7 +77,7 @@ public class ForgotPasswordService {
                 long waitMinutes = OTP_REQUEST_COOLDOWN_MINUTES - timeSinceLastRequest.toMinutes();
                 log.warn("Rate limit hit for OTP request by user: {}. Wait {} more minute(s).", username, waitMinutes);
                 return ApiResponse.<String>builder()
-                        .status(HttpStatus.TOO_MANY_REQUESTS.value()) // 429 Too Many Requests
+                        .status(HttpStatus.TOO_MANY_REQUESTS.value())
                         .message("Bạn vừa yêu cầu OTP gần đây. Vui lòng đợi " + waitMinutes + " phút nữa trước khi thử lại.")
                         .result(null)
                         .timestamp(now)
@@ -104,8 +103,6 @@ public class ForgotPasswordService {
         String emailSubject = "Mã OTP xác thực quên mật khẩu";
         String templateName = "otp-email-template";
 
-        // Consider potential email sending failures. If email fails, should we still update the timestamp?
-        // For simplicity here, we update it assuming the *intent* to send was processed.
         emailService.sendHtmlEmail(
                 user.getEmail(),
                 emailSubject,
@@ -259,10 +256,6 @@ public class ForgotPasswordService {
     }
 
     private JWTClaimsSet validatePasswordResetToken(String token) throws ParseException, JOSEException, AppException {
-        if (token == null || token.isEmpty()) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không được cung cấp.", null);
-        }
-
         SignedJWT signedJWT = SignedJWT.parse(token);
         JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
 
