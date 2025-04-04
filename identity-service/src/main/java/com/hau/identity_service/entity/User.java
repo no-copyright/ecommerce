@@ -1,13 +1,14 @@
 package com.hau.identity_service.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 import java.util.Set;
 
+import jakarta.persistence.*;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import lombok.*;
 
 @Entity
 @Setter
@@ -20,6 +21,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
     private String username;
     private String password;
     private String email;
@@ -27,10 +29,13 @@ public class User {
     private String address;
     private String profileImage;
     private Integer gender;
+
     @ManyToMany
     private Set<Role> roles;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
+
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 }

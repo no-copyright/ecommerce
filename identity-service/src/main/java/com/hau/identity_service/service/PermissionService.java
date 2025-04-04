@@ -1,27 +1,27 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.response.ApiResponse;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
 import com.hau.identity_service.dto.request.PermissionCreationRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
 import com.hau.identity_service.dto.response.PermissionResponse;
 import com.hau.identity_service.entity.Permission;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.PermissionMapper;
 import com.hau.identity_service.repository.PermissionRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-
 public class PermissionService {
 
     private final PermissionRepository permissionRepository;
     private final PermissionMapper permissionMapper;
-
 
     public ApiResponse<PermissionResponse> createPermission(PermissionCreationRequest permissionCreationRequest) {
         Permission permission = permissionMapper.toPermission(permissionCreationRequest);
@@ -36,9 +36,8 @@ public class PermissionService {
 
     public ApiResponse<List<PermissionResponse>> getAllPermissions() {
         List<Permission> permissions = permissionRepository.findAll();
-        List<PermissionResponse> permissionResponses = permissions.stream()
-                .map(permissionMapper::toPermissionResponse)
-                .toList();
+        List<PermissionResponse> permissionResponses =
+                permissions.stream().map(permissionMapper::toPermissionResponse).toList();
         return ApiResponse.<List<PermissionResponse>>builder()
                 .status(HttpStatus.OK.value())
                 .message("Lấy danh sách quyền thành công")
@@ -48,8 +47,10 @@ public class PermissionService {
     }
 
     public ApiResponse<PermissionResponse> deletePermission(String name) {
-        Permission permission = permissionRepository.findByName(name)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy quyền với tên: " + name, null));
+        Permission permission = permissionRepository
+                .findByName(name)
+                .orElseThrow(
+                        () -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy quyền với tên: " + name, null));
         permissionRepository.delete(permission);
         return ApiResponse.<PermissionResponse>builder()
                 .status(HttpStatus.OK.value())

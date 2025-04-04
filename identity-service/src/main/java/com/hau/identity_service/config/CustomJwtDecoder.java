@@ -1,8 +1,8 @@
 package com.hau.identity_service.config;
 
-import com.hau.identity_service.dto.response.IntrospectResponse;
-import com.hau.identity_service.service.TokenService;
-import lombok.RequiredArgsConstructor;
+import java.util.Objects;
+import javax.crypto.spec.SecretKeySpec;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -11,8 +11,10 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Objects;
+import com.hau.identity_service.dto.response.IntrospectResponse;
+import com.hau.identity_service.service.TokenService;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -39,8 +41,7 @@ public class CustomJwtDecoder implements JwtDecoder {
 
             if (Objects.isNull(nimbusJwtDecoder)) {
                 SecretKeySpec secretKeySpec = new SecretKeySpec(SIGNER_KEY.getBytes(), "HS512");
-                nimbusJwtDecoder = NimbusJwtDecoder
-                        .withSecretKey(secretKeySpec)
+                nimbusJwtDecoder = NimbusJwtDecoder.withSecretKey(secretKeySpec)
                         .macAlgorithm(MacAlgorithm.HS512)
                         .build();
             }

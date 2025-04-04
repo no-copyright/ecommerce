@@ -1,5 +1,13 @@
 package com.hau.identity_service.service;
 
+import java.text.ParseException;
+import java.time.LocalDateTime;
+import java.util.Date;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.hau.identity_service.dto.request.AuthenticationRequest;
 import com.hau.identity_service.dto.request.IntrospectRequest;
 import com.hau.identity_service.dto.request.LogoutRequest;
@@ -12,15 +20,9 @@ import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.repository.InvalidatedTokenRepository;
 import com.hau.identity_service.repository.UserRepository;
 import com.nimbusds.jose.*;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import java.text.ParseException;
-import java.time.LocalDateTime;
-import java.util.Date;
 
 @RequiredArgsConstructor
 @Service
@@ -32,7 +34,8 @@ public class AuthenticationService {
     private final TokenService tokenService;
 
     public ApiResponse<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest) {
-        User user = userRepository.findByUsername(authenticationRequest.getUsername())
+        User user = userRepository
+                .findByUsername(authenticationRequest.getUsername())
                 .orElse(null);
 
         if (user == null || !passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword())) {
@@ -70,10 +73,8 @@ public class AuthenticationService {
         String jit = signToken.getJWTClaimsSet().getJWTID();
         Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
 
-        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
-                .id(jit)
-                .expiryDate(expiryTime)
-                .build();
+        InvalidatedToken invalidatedToken =
+                InvalidatedToken.builder().id(jit).expiryDate(expiryTime).build();
         invalidatedTokenRepository.save(invalidatedToken);
         return ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
@@ -82,8 +83,6 @@ public class AuthenticationService {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
-
-
 
     public ApiResponse<IntrospectResponse> introspect(IntrospectRequest introspectRequest) {
         String token = introspectRequest.getToken();
@@ -115,11 +114,8 @@ public class AuthenticationService {
         return ApiResponse.<IntrospectResponse>builder()
                 .status(HttpStatus.BAD_REQUEST.value())
                 .message(message)
-                .result(IntrospectResponse.builder()
-                        .valid(false)
-                        .build())
+                .result(IntrospectResponse.builder().valid(false).build())
                 .timestamp(LocalDateTime.now())
                 .build();
     }
-
 }

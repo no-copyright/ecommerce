@@ -1,5 +1,22 @@
 package com.hau.identity_service.service;
 
+import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.List;
+import java.util.StringJoiner;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
 import com.hau.identity_service.dto.request.RefreshTokenRequest;
 import com.hau.identity_service.dto.response.ApiResponse;
 import com.hau.identity_service.dto.response.AuthenticationResponse;
@@ -14,24 +31,9 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
-import java.text.ParseException;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.List;
-import java.util.StringJoiner;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -64,7 +66,11 @@ public class TokenService {
             }
 
             Date expirationTime = (isRefresh)
-                    ? new Date(claimsSet.getIssueTime().toInstant().plus(expirationRefresh, ChronoUnit.MINUTES).toEpochMilli())
+                    ? new Date(claimsSet
+                            .getIssueTime()
+                            .toInstant()
+                            .plus(expirationRefresh, ChronoUnit.MINUTES)
+                            .toEpochMilli())
                     : claimsSet.getExpirationTime();
 
             if (expirationTime == null || expirationTime.before(new Date())) {
@@ -114,14 +120,14 @@ public class TokenService {
         }
     }
 
-
     public String generateToken(User user) throws JOSEException {
         JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
                 .issuer(issuer)
                 .issueTime(new Date())
-                .expirationTime(new Date(Instant.now().plus(expiration, ChronoUnit.MINUTES).toEpochMilli()))
+                .expirationTime(new Date(
+                        Instant.now().plus(expiration, ChronoUnit.MINUTES).toEpochMilli()))
                 .claim("scope", buildScope(user))
                 .jwtID(UUID.randomUUID().toString())
                 .build();
@@ -132,20 +138,20 @@ public class TokenService {
         return jwsObject.serialize();
     }
 
-    public ApiResponse<AuthenticationResponse> refreshToken(RefreshTokenRequest refreshTokenRequest) throws JOSEException, ParseException {
+    public ApiResponse<AuthenticationResponse> refreshToken(RefreshTokenRequest refreshTokenRequest)
+            throws JOSEException, ParseException {
         SignedJWT signedJWT = verifyToken(refreshTokenRequest.getToken(), true);
 
         String jwtId = signedJWT.getJWTClaimsSet().getJWTID();
         Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
 
-        invalidatedTokenRepository.save(InvalidatedToken.builder()
-                .id(jwtId)
-                .expiryDate(expiryTime)
-                .build());
+        invalidatedTokenRepository.save(
+                InvalidatedToken.builder().id(jwtId).expiryDate(expiryTime).build());
 
         String username = signedJWT.getJWTClaimsSet().getSubject();
         log.info("Refresh token for user: {}", username);
-        User user = userRepository.findByUsername(username)
+        User user = userRepository
+                .findByUsername(username)
                 .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, "Người dùng không tồn tại", null));
 
         String token = generateToken(user);
@@ -161,8 +167,6 @@ public class TokenService {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
-
-
 
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");

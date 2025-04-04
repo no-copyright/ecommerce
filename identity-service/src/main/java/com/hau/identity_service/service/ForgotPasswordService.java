@@ -1,5 +1,22 @@
 package com.hau.identity_service.service;
 
+import java.text.ParseException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.thymeleaf.context.Context;
+
 import com.hau.identity_service.dto.request.ForgotPasswordRequest;
 import com.hau.identity_service.dto.request.ResetPasswordWithTokenRequest;
 import com.hau.identity_service.dto.request.VerifyOtpRequest;
@@ -13,24 +30,9 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.thymeleaf.context.Context;
-
-import java.text.ParseException;
-import java.time.Duration; // Import Duration
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +53,7 @@ public class ForgotPasswordService {
 
     @Value("${jwt.otpExpiryMinutes}")
     private long OTP_EXPIRY_MINUTES;
+
     @Value("${jwt.otpRequestCooldownMinutes}")
     private long OTP_REQUEST_COOLDOWN_MINUTES;
 
@@ -63,7 +66,6 @@ public class ForgotPasswordService {
     private final Map<String, LocalDateTime> otpRequestTimestamps = new ConcurrentHashMap<>();
 
     private final Map<String, LocalDateTime> usedResetTokens = new ConcurrentHashMap<>();
-
 
     public ApiResponse<String> sendOtp(ForgotPasswordRequest forgotPasswordRequest) {
         String username = forgotPasswordRequest.getUsername();
@@ -78,7 +80,8 @@ public class ForgotPasswordService {
                 log.warn("Rate limit hit for OTP request by user: {}. Wait {} more minute(s).", username, waitMinutes);
                 return ApiResponse.<String>builder()
                         .status(HttpStatus.TOO_MANY_REQUESTS.value())
-                        .message("Bạn vừa yêu cầu OTP gần đây. Vui lòng đợi " + waitMinutes + " phút nữa trước khi thử lại.")
+                        .message("Bạn vừa yêu cầu OTP gần đây. Vui lòng đợi " + waitMinutes
+                                + " phút nữa trước khi thử lại.")
                         .result(null)
                         .timestamp(now)
                         .build();
@@ -86,8 +89,10 @@ public class ForgotPasswordService {
         }
         // --- End Rate Limiting Check ---
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với username: " + username, null));
+        User user = userRepository
+                .findByUsername(username)
+                .orElseThrow(() -> new AppException(
+                        HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với username: " + username, null));
 
         String otp = generateOtp();
         otpCache.put(username, otp);
@@ -103,12 +108,7 @@ public class ForgotPasswordService {
         String emailSubject = "Mã OTP xác thực quên mật khẩu";
         String templateName = "otp-email-template";
 
-        emailService.sendHtmlEmail(
-                user.getEmail(),
-                emailSubject,
-                templateName,
-                context
-        );
+        emailService.sendHtmlEmail(user.getEmail(), emailSubject, templateName, context);
 
         // Update the timestamp *after* successfully processing the request
         otpRequestTimestamps.put(username, now);
@@ -209,18 +209,20 @@ public class ForgotPasswordService {
                     .build();
         }
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> {
-                    log.error("User '{}' not found after successful token validation (JTI: {}).", username, jti);
-                    return new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi không mong đợi: Không tìm thấy người dùng.", null);
-                });
+        User user = userRepository.findByUsername(username).orElseThrow(() -> {
+            log.error("User '{}' not found after successful token validation (JTI: {}).", username, jti);
+            return new AppException(
+                    HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi không mong đợi: Không tìm thấy người dùng.", null);
+        });
 
         user.setPassword(passwordEncoder.encode(resetPasswordWithTokenRequest.getNewPassword()));
         userRepository.save(user);
 
         // --- Add token JTI to blacklist after successful password reset ---
         // Store with original expiry time to allow potential cleanup later
-        usedResetTokens.put(jti, tokenExpiry.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        usedResetTokens.put(
+                jti,
+                tokenExpiry.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
         log.info("Password successfully reset for user {}. Token JTI {} blacklisted.", username, jti);
         // Note: In a production/scaled environment, consider a more robust blacklist (e.g., Redis with TTL)
         // and a cleanup mechanism for the in-memory map if used long-term.
@@ -242,9 +244,9 @@ public class ForgotPasswordService {
                 .subject(username)
                 .issuer(ISSUER)
                 .issueTime(new Date())
-                .expirationTime(new Date(
-                        Instant.now().plus(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES).toEpochMilli()
-                ))
+                .expirationTime(new Date(Instant.now()
+                        .plus(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES)
+                        .toEpochMilli()))
                 .claim(PASSWORD_RESET_PURPOSE_CLAIM, PASSWORD_RESET_PURPOSE_VALUE)
                 .jwtID(UUID.randomUUID().toString()) // Ensure unique JTI is generated
                 .build();
@@ -273,7 +275,10 @@ public class ForgotPasswordService {
         if (jti != null && usedResetTokens.containsKey(jti)) {
             log.warn("Attempt to reuse already used password reset token. User: {}, JTI: {}", tokenUsername, jti);
             // Consider 409 Conflict, but 400 is also common.
-            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận đã được sử dụng. Vui lòng thực hiện lại quy trình quên mật khẩu.", null);
+            throw new AppException(
+                    HttpStatus.BAD_REQUEST,
+                    "Mã xác nhận đã được sử dụng. Vui lòng thực hiện lại quy trình quên mật khẩu.",
+                    null);
         }
         // --- End Blacklist Check ---
 
@@ -285,19 +290,30 @@ public class ForgotPasswordService {
 
         String tokenIssuer = claimsSet.getIssuer();
         if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
-            log.warn("Invalid issuer in password reset token. User: {}, Expected: {}, Found: {}. JTI: {}", tokenUsername, ISSUER, tokenIssuer, jti);
+            log.warn(
+                    "Invalid issuer in password reset token. User: {}, Expected: {}, Found: {}. JTI: {}",
+                    tokenUsername,
+                    ISSUER,
+                    tokenIssuer,
+                    jti);
             throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (issuer sai).", null);
         }
 
         String purpose = claimsSet.getStringClaim(PASSWORD_RESET_PURPOSE_CLAIM);
         if (!PASSWORD_RESET_PURPOSE_VALUE.equals(purpose)) {
-            log.warn("Incorrect purpose claim in token. User: {}, Expected: {}, Found: {}. JTI: {}", tokenUsername, PASSWORD_RESET_PURPOSE_VALUE, purpose, jti);
+            log.warn(
+                    "Incorrect purpose claim in token. User: {}, Expected: {}, Found: {}. JTI: {}",
+                    tokenUsername,
+                    PASSWORD_RESET_PURPOSE_VALUE,
+                    purpose,
+                    jti);
             throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (mục đích sai).", null);
         }
 
         if (tokenUsername == null || tokenUsername.trim().isEmpty()) {
             log.warn("Password reset token is missing the subject (username) claim. JTI: {}", jti);
-            throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (thiếu thông tin người dùng).", null);
+            throw new AppException(
+                    HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (thiếu thông tin người dùng).", null);
         }
 
         Date issueTime = claimsSet.getIssueTime();
@@ -312,11 +328,9 @@ public class ForgotPasswordService {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi xử lý mã xác nhận (thiếu JTI).", null);
         }
 
-
         log.info("Password reset token successfully validated for user {}", tokenUsername);
         return claimsSet;
     }
-
 
     private String generateOtp() {
         Random random = new Random();

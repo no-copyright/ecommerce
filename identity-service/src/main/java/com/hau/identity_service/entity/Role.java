@@ -1,12 +1,13 @@
 package com.hau.identity_service.entity;
 
+import java.util.Set;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
-import lombok.*;
 
-import java.util.Set;
+import lombok.*;
 
 @Entity
 @Setter
@@ -18,6 +19,7 @@ import java.util.Set;
 public class Role {
     @Id
     private String name;
+
     private String description;
 
     @ManyToMany

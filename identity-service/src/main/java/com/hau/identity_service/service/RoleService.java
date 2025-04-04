@@ -1,22 +1,24 @@
 package com.hau.identity_service.service;
 
-import com.hau.identity_service.dto.response.ApiResponse;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
 import com.hau.identity_service.dto.request.RoleCreationRequest;
+import com.hau.identity_service.dto.response.ApiResponse;
 import com.hau.identity_service.dto.response.RoleResponse;
 import com.hau.identity_service.entity.Role;
 import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.RoleMapper;
 import com.hau.identity_service.repository.PermissionRepository;
 import com.hau.identity_service.repository.RoleRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -48,12 +50,10 @@ public class RoleService {
                 .build();
     }
 
-
     public ApiResponse<List<RoleResponse>> getAllRoles() {
         List<Role> roles = roleRepository.findAll();
-        List<RoleResponse> roleResponses = roles.stream()
-                .map(roleMapper::toRoleResponse)
-                .toList();
+        List<RoleResponse> roleResponses =
+                roles.stream().map(roleMapper::toRoleResponse).toList();
         return ApiResponse.<List<RoleResponse>>builder()
                 .status(HttpStatus.OK.value())
                 .message("Lấy danh sách role thành công")
@@ -63,8 +63,10 @@ public class RoleService {
     }
 
     public ApiResponse<RoleResponse> deleteRole(String name) {
-        Role role = roleRepository.findByName(name)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy role với tên: " + name, null));
+        Role role = roleRepository
+                .findByName(name)
+                .orElseThrow(
+                        () -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy role với tên: " + name, null));
         roleRepository.delete(role);
         return ApiResponse.<RoleResponse>builder()
                 .status(HttpStatus.OK.value())

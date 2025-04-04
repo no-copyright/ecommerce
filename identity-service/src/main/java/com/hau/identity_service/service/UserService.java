@@ -1,5 +1,20 @@
 package com.hau.identity_service.service;
 
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
 import com.hau.identity_service.dto.request.ChangePasswordRequest;
 import com.hau.identity_service.dto.request.UserCreateRequest;
 import com.hau.identity_service.dto.request.UserUpdateInfoRequest;
@@ -11,23 +26,9 @@ import com.hau.identity_service.exception.AppException;
 import com.hau.identity_service.mapper.UserMapper;
 import com.hau.identity_service.repository.RoleRepository;
 import com.hau.identity_service.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -37,6 +38,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
     public ApiResponse<UserResponse> createUser(UserCreateRequest userCreateRequest) {
         if (userRepository.findByUsername(userCreateRequest.getUsername()).isPresent()) {
             return ApiResponse.<UserResponse>builder()
@@ -69,7 +71,6 @@ public class UserService {
                 .build();
     }
 
-
     public Page<UserResponse> getAllUsers(int pageIndex, int pageSize, String username, Integer gender) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -79,7 +80,8 @@ public class UserService {
         Specification<User> spec = Specification.where(null);
 
         if (username != null) {
-            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + username.toLowerCase() + "%"));
+            spec = spec.and(
+                    (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + username.toLowerCase() + "%"));
         }
 
         if (gender != null) {
@@ -92,12 +94,12 @@ public class UserService {
         return userPage.map(userMapper::toUserResponse);
     }
 
-
     public ApiResponse<UserResponse> myInfo() {
         var context = SecurityContextHolder.getContext();
         String username = context.getAuthentication().getName();
 
-        User user = userRepository.findByUsername(username)
+        User user = userRepository
+                .findByUsername(username)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy user", null));
         UserResponse userResponse = userMapper.toUserResponse(user);
 
@@ -181,7 +183,8 @@ public class UserService {
     }
 
     public User findUserById(Long id) {
-        return userRepository.findById(id)
+        return userRepository
+                .findById(id)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Không tìm thấy user có id: " + id, null));
     }
 
