@@ -39,15 +39,7 @@ public class AuthenticationService {
                 .orElse(null);
 
         if (user == null || !passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword())) {
-            return ApiResponse.<AuthenticationResponse>builder()
-                    .status(HttpStatus.UNAUTHORIZED.value())
-                    .message("Thông tin đăng nhập không chính xác")
-                    .result(AuthenticationResponse.builder()
-                            .authenticated(false)
-                            .token(null)
-                            .build())
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            throw new AppException(HttpStatus.BAD_REQUEST, "Tên đăng nhập hoặc mật khẩu không chính xác", null);
         }
 
         String token;

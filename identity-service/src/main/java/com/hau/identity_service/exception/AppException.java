@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 public class AppException extends RuntimeException {
     private final HttpStatus httpStatus;
-    private final Object error;
+    private final transient Object error;
     private final LocalDateTime timestamp;
 
     public AppException(HttpStatus httpStatus, String message, Object error) {

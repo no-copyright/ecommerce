@@ -43,22 +43,23 @@ public class ForgotPasswordService {
     private final EmailService emailService;
 
     @Value("${jwt.signerKey}")
-    private String SINGER_KEY;
+    private String signerKey;
 
     @Value("${jwt.issuer}")
-    private String ISSUER;
+    private String issuer;
 
     @Value("${jwt.passwordResetTokenExpiryMinutes}")
-    private long PASSWORD_RESET_TOKEN_EXPIRY_MINUTES;
+    private long passwordResetTokenExpiryMinutes;
 
     @Value("${jwt.otpExpiryMinutes}")
-    private long OTP_EXPIRY_MINUTES;
+    private long otpExpiryMinutes;
 
     @Value("${jwt.otpRequestCooldownMinutes}")
-    private long OTP_REQUEST_COOLDOWN_MINUTES;
+    private long otpRequestCooldownMinutes;
 
-    private static final String PASSWORD_RESET_PURPOSE_CLAIM = "purpose";
-    private static final String PASSWORD_RESET_PURPOSE_VALUE = "PASSWORD_RESET";
+    private static final Random random = new Random();
+    private static final String PURPOSE_CLAIM = "purpose";
+    private static final String PURPOSE_VALUE = "PASSWORD_RESET";
 
     private final Map<String, String> otpCache = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> otpExpiryCache = new ConcurrentHashMap<>();
@@ -75,8 +76,8 @@ public class ForgotPasswordService {
         LocalDateTime now = LocalDateTime.now();
         if (lastRequestTime != null) {
             Duration timeSinceLastRequest = Duration.between(lastRequestTime, now);
-            if (timeSinceLastRequest.toMinutes() < OTP_REQUEST_COOLDOWN_MINUTES) {
-                long waitMinutes = OTP_REQUEST_COOLDOWN_MINUTES - timeSinceLastRequest.toMinutes();
+            if (timeSinceLastRequest.toMinutes() < otpRequestCooldownMinutes) {
+                long waitMinutes = otpRequestCooldownMinutes - timeSinceLastRequest.toMinutes();
                 log.warn("Rate limit hit for OTP request by user: {}. Wait {} more minute(s).", username, waitMinutes);
                 return ApiResponse.<String>builder()
                         .status(HttpStatus.TOO_MANY_REQUESTS.value())
@@ -96,14 +97,14 @@ public class ForgotPasswordService {
 
         String otp = generateOtp();
         otpCache.put(username, otp);
-        otpExpiryCache.put(username, now.plusMinutes(OTP_EXPIRY_MINUTES));
+        otpExpiryCache.put(username, now.plusMinutes(otpExpiryMinutes));
 
         log.info("Generated OTP for user {}. Triggering async email.", username);
 
         Context context = new Context();
         context.setVariable("username", username);
         context.setVariable("otp", otp);
-        context.setVariable("expiryMinutes", OTP_EXPIRY_MINUTES);
+        context.setVariable("expiryMinutes", otpExpiryMinutes);
 
         String emailSubject = "Mã OTP xác thực quên mật khẩu";
         String templateName = "otp-email-template";
@@ -242,24 +243,24 @@ public class ForgotPasswordService {
         JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(username)
-                .issuer(ISSUER)
+                .issuer(issuer)
                 .issueTime(new Date())
                 .expirationTime(new Date(Instant.now()
-                        .plus(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES)
+                        .plus(passwordResetTokenExpiryMinutes, ChronoUnit.MINUTES)
                         .toEpochMilli()))
-                .claim(PASSWORD_RESET_PURPOSE_CLAIM, PASSWORD_RESET_PURPOSE_VALUE)
+                .claim(PURPOSE_CLAIM, PURPOSE_VALUE)
                 .jwtID(UUID.randomUUID().toString()) // Ensure unique JTI is generated
                 .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
         JWSObject jwsObject = new JWSObject(jwsHeader, payload);
-        jwsObject.sign(new MACSigner(SINGER_KEY.getBytes()));
+        jwsObject.sign(new MACSigner(signerKey.getBytes()));
         return jwsObject.serialize();
     }
 
     private JWTClaimsSet validatePasswordResetToken(String token) throws ParseException, JOSEException, AppException {
         SignedJWT signedJWT = SignedJWT.parse(token);
-        JWSVerifier verifier = new MACVerifier(SINGER_KEY.getBytes());
+        JWSVerifier verifier = new MACVerifier(signerKey.getBytes());
 
         boolean signatureValid = signedJWT.verify(verifier);
         if (!signatureValid) {
@@ -289,22 +290,22 @@ public class ForgotPasswordService {
         }
 
         String tokenIssuer = claimsSet.getIssuer();
-        if (tokenIssuer == null || !tokenIssuer.equals(ISSUER)) {
+        if (tokenIssuer == null || !tokenIssuer.equals(issuer)) {
             log.warn(
                     "Invalid issuer in password reset token. User: {}, Expected: {}, Found: {}. JTI: {}",
                     tokenUsername,
-                    ISSUER,
+                    issuer,
                     tokenIssuer,
                     jti);
             throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (issuer sai).", null);
         }
 
-        String purpose = claimsSet.getStringClaim(PASSWORD_RESET_PURPOSE_CLAIM);
-        if (!PASSWORD_RESET_PURPOSE_VALUE.equals(purpose)) {
+        String purpose = claimsSet.getStringClaim(PURPOSE_CLAIM);
+        if (!PURPOSE_VALUE.equals(purpose)) {
             log.warn(
                     "Incorrect purpose claim in token. User: {}, Expected: {}, Found: {}. JTI: {}",
                     tokenUsername,
-                    PASSWORD_RESET_PURPOSE_VALUE,
+                    PURPOSE_VALUE,
                     purpose,
                     jti);
             throw new AppException(HttpStatus.BAD_REQUEST, "Mã xác nhận không hợp lệ (mục đích sai).", null);
@@ -333,7 +334,6 @@ public class ForgotPasswordService {
     }
 
     private String generateOtp() {
-        Random random = new Random();
         int otpValue = 100000 + random.nextInt(900000);
         return String.valueOf(otpValue);
     }

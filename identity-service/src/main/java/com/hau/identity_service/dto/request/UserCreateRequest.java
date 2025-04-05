@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class UserCreateRequest {
     @NotBlank(message = "Username không được để trống")
+    @Pattern(regexp = "^[a-z0-9]+$", message = "Username chỉ được chứa chữ cái thường và không có ký tự đặc biệt")
     private String username;
 
     @Size(min = 6, message = "Password phải có ít nhất 6 ký tự")

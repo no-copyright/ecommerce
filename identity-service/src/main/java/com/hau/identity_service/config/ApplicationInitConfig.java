@@ -3,6 +3,7 @@ package com.hau.identity_service.config;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,15 +24,24 @@ public class ApplicationInitConfig {
 
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${admin.username}")
+    private String adminUsername;
+
+    @Value("${admin.password}")
+    private String adminPassword;
+
+    @Value("${admin.role}")
+    private String adminRole;
+
     @Bean
     ApplicationRunner applicationRunner(UserRepository userRepository, RoleRepository roleRepository) {
         return args -> {
-            if (roleRepository.findByName("ADMIN").isEmpty()) {
-                Role adminRole = Role.builder()
-                        .name("ADMIN")
+            if (roleRepository.findByName(adminRole).isEmpty()) {
+                Role role = Role.builder()
+                        .name(adminRole)
                         .description("Quyền quản trị viên")
                         .build();
-                roleRepository.save(adminRole);
+                roleRepository.save(role);
                 log.info("Role ADMIN đã được tạo.");
             }
 
@@ -44,17 +54,17 @@ public class ApplicationInitConfig {
                 log.info("Role USER đã được tạo.");
             }
 
-            if (userRepository.findByUsername("admin").isEmpty()) {
+            if (userRepository.findByUsername(adminUsername).isEmpty()) {
 
                 User user = User.builder()
-                        .username("admin")
-                        .password(passwordEncoder.encode("admin"))
+                        .username(adminUsername)
+                        .password(passwordEncoder.encode(adminPassword))
                         .email("datdnk3@gmail.com")
                         .phone("0986964761")
                         .address("Hà Nội")
                         .gender(0)
                         .build();
-                var roles = roleRepository.findAllById(Set.of("ADMIN"));
+                var roles = roleRepository.findAllById(Set.of(adminRole));
                 if (roles.isEmpty()) {
                     log.error("Không tìm thấy role ADMIN");
                     return;

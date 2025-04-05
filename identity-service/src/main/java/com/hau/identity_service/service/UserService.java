@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import com.hau.identity_service.dto.request.ChangePasswordRequest;
 import com.hau.identity_service.dto.request.UserCreateRequest;
@@ -40,35 +40,22 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public ApiResponse<UserResponse> createUser(UserCreateRequest userCreateRequest) {
-        if (userRepository.findByUsername(userCreateRequest.getUsername()).isPresent()) {
-            return ApiResponse.<UserResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("Username đã tồn tại")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
-
-        var user = userMapper.toUser(userCreateRequest);
+        User user = userMapper.toUser(userCreateRequest);
         var roles = roleRepository.findAllById(Set.of("USER"));
-        if (CollectionUtils.isEmpty(roles)) {
-            return ApiResponse.<UserResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("Không tìm thấy role nào")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
         user.setRoles(new HashSet<>(roles));
         user.setPassword(passwordEncoder.encode(userCreateRequest.getPassword()));
-        userRepository.save(user);
+        try {
+            userRepository.save(user);
 
-        return ApiResponse.<UserResponse>builder()
-                .status(HttpStatus.CREATED.value())
-                .message("Tạo mới user thành công")
-                .result(null)
-                .timestamp(LocalDateTime.now())
-                .build();
+            return ApiResponse.<UserResponse>builder()
+                    .status(HttpStatus.CREATED.value())
+                    .message("Tạo mới user thành công")
+                    .result(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        } catch (DataIntegrityViolationException ex) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "username đã tồn tại", null);
+        }
     }
 
     public Page<UserResponse> getAllUsers(int pageIndex, int pageSize, String username, Integer gender) {
@@ -153,12 +140,7 @@ public class UserService {
     public ApiResponse<UserResponse> changePassword(Long id, ChangePasswordRequest changePasswordRequest) {
         User user = findUserById(id);
         if (!passwordEncoder.matches(changePasswordRequest.getOldPassword(), user.getPassword())) {
-            return ApiResponse.<UserResponse>builder()
-                    .status(HttpStatus.BAD_REQUEST.value())
-                    .message("Mật khẩu cũ không chính xác")
-                    .result(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            throw new AppException(HttpStatus.BAD_REQUEST, "Mật khẩu cũ không đúng", null);
         }
 
         user.setPassword(passwordEncoder.encode(changePasswordRequest.getNewPassword()));

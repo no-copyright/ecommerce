@@ -35,3 +35,8 @@ jwt:
   passwordResetTokenExpiryMinutes: 15
   otpExpiryMinutes: 5
   otpRequestCooldownMinutes: 5
+
+admin:
+  username:
+  password:
+  role: ADMIN

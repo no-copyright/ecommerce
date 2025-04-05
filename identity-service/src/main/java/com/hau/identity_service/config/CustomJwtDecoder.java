@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CustomJwtDecoder implements JwtDecoder {
     @Value("${jwt.signerKey}")
-    private String SIGNER_KEY;
+    private String singerKey;
 
     private final TokenService tokenService;
 
@@ -40,7 +40,7 @@ public class CustomJwtDecoder implements JwtDecoder {
             }
 
             if (Objects.isNull(nimbusJwtDecoder)) {
-                SecretKeySpec secretKeySpec = new SecretKeySpec(SIGNER_KEY.getBytes(), "HS512");
+                SecretKeySpec secretKeySpec = new SecretKeySpec(singerKey.getBytes(), "HS512");
                 nimbusJwtDecoder = NimbusJwtDecoder.withSecretKey(secretKeySpec)
                         .macAlgorithm(MacAlgorithm.HS512)
                         .build();
